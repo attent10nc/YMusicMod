@@ -216,8 +216,17 @@
     rebuild(el) {
       const entry = this.nodes.get(el);
       if (!entry || !this.ctx) return;
-      const tracks = entry.stream.getAudioTracks().filter((t) => t.readyState === "live");
-      const key = tracks.map((t) => t.id).join(",");
+      // Плеер переиспользует <audio>: на каждый трек captureStream добавляет новую дорожку,
+      // а старые остаются "живыми", но молчат. Слушаем только последнюю, старые закрываем.
+      const all = entry.stream.getAudioTracks().filter((t) => t.readyState === "live");
+      const latest = all[all.length - 1];
+      for (const t of all) {
+        if (t === latest) continue;
+        entry.stream.removeTrack(t);
+        t.stop();
+      }
+      const tracks = latest ? [latest] : [];
+      const key = latest ? latest.id : "";
       if (entry.key === key) return;
       if (entry.src) {
         try {
