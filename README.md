@@ -9,9 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Windows 10/11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-1c1c24?style=flat-square&logo=windows&logoColor=white">
-  <img alt="Не привязан к версии" src="https://img.shields.io/badge/Яндекс%20Музыка-без%20привязки%20к%20версии-ff2d7a?style=flat-square">
-  <img alt="MIT" src="https://img.shields.io/badge/license-MIT-1c1c24?style=flat-square">
+  <img src="assets/badges.png" width="632" alt="Windows 10/11 · без привязки к версии · MIT">
 </p>
 
 <br>
