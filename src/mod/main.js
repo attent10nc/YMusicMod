@@ -573,6 +573,7 @@ const ymmSetMini = (mainWin, on) => {
     ymmStopFsWatcher();
     ymmMiniShortcuts(false);
     if (mainWin && !mainWin.isDestroyed()) {
+      mainWin.webContents.setBackgroundThrottling(true);
       mainWin.show();
       mainWin.webContents.executeJavaScript("window.__ymmMiniClosed && window.__ymmMiniClosed()").catch(() => {});
     }
@@ -582,6 +583,8 @@ const ymmSetMini = (mainWin, on) => {
   ymmMini.userHidden = false;
   ymmMiniShortcuts(true);
   ymmStartFsWatcher();
+  // Скрытое окно Chromium притормаживает, и плеер реагирует на кнопки с задержкой.
+  mainWin.webContents.setBackgroundThrottling(false);
   mainWin.hide();
   return true;
 };
