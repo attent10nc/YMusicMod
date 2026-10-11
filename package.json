@@ -1,0 +1,17 @@
+{
+  "name": "ymusicmod",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Customization mod for Yandex Music desktop (Windows)",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1",
+    "patch": "node scripts/patch.mjs",
+    "check": "node scripts/patch.mjs --dry-run"
+  },
+  "devDependencies": {
+    "@electron/asar": "^3.2.17",
+    "@electron/fuses": "^1.8.0"
+  }
+}

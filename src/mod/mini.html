@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Яндекс Музыка · мини</title>
+<style>
+  :root { --a: #ff5c4d; --on-a: #000; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; background: transparent; overflow: hidden; font-family: "YS Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; color: #f4f4f6; user-select: none; }
+  .island { position: absolute; inset: 0; border-radius: 28px; overflow: hidden; background: #141418; -webkit-app-region: drag; display: flex; flex-direction: column; padding: 14px 16px 12px; gap: 10px; }
+  .bg { position: absolute; inset: -40px; background: center/cover; filter: blur(34px) saturate(1.5) brightness(.42); transition: background-image .6s; }
+  .tint { position: absolute; inset: 0; background: linear-gradient(110deg, rgba(14,14,18,.5), rgba(14,14,18,.15) 60%, color-mix(in srgb, var(--a) 22%, transparent)); }
+  .island > :not(.bg):not(.tint) { position: relative; }
+  .top { display: flex; align-items: center; gap: 14px; min-height: 0; }
+  .cover { width: 70px; height: 70px; flex-shrink: 0; border-radius: 16px; background: #26262c center/cover; cursor: pointer; -webkit-app-region: no-drag; transition: transform .2s; }
+  .cover:hover { transform: scale(1.04); }
+  body.playing .cover { animation: breath 3.6s ease-in-out infinite; }
+  @keyframes breath { 50% { transform: scale(1.04); } }
+  .meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .title { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .artist { font-size: 13px; opacity: .62; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ctrl { display: flex; align-items: center; gap: 2px; -webkit-app-region: no-drag; }
+  button { -webkit-app-region: no-drag; border: 0; background: transparent; color: #fff; cursor: pointer; display: grid; place-items: center; border-radius: 50%; transition: background .15s, transform .1s, color .15s, opacity .15s; }
+  button:active { transform: scale(.92); }
+  .ib { width: 38px; height: 38px; opacity: .85; }
+  .ib:hover { background: rgba(255,255,255,.1); opacity: 1; }
+  .play { width: 50px; height: 50px; background: var(--a); color: var(--on-a); margin: 0 2px; }
+  .play:hover { filter: brightness(1.1); }
+  svg { width: 19px; height: 19px; fill: currentColor; }
+  .play svg { width: 22px; height: 22px; }
+  .prog { display: flex; align-items: center; gap: 10px; font-size: 11px; font-variant-numeric: tabular-nums; -webkit-app-region: no-drag; }
+  .prog > span { opacity: .6; min-width: 34px; }
+  .prog > span:last-child { text-align: right; }
+  .bar { position: relative; flex: 1; height: 18px; display: flex; align-items: center; cursor: pointer; }
+  .bar::before { content: ""; position: absolute; left: 0; right: 0; height: 5px; border-radius: 99px; background: rgba(255,255,255,.16); transition: height .15s; }
+  .fill { position: absolute; left: 0; height: 5px; border-radius: 99px; background: linear-gradient(90deg, var(--a), color-mix(in oklab, var(--a) 55%, #fff)); transition: height .15s; }
+  .bar:hover::before, .bar:hover .fill { height: 7px; }
+  .knob { position: absolute; width: 13px; height: 13px; margin-left: -6.5px; border-radius: 50%; background: #fff; opacity: 0; transition: opacity .15s; }
+  .bar:hover .knob { opacity: 1; }
+  .tip { position: absolute; bottom: 20px; transform: translateX(-50%); padding: 2px 7px; border-radius: 7px; background: rgba(0,0,0,.75); font-size: 11px; opacity: 0; pointer-events: none; transition: opacity .12s; white-space: nowrap; }
+  .bar:hover .tip { opacity: 1; }
+  .tools { display: flex; gap: 2px; margin-left: 4px; padding-left: 8px; border-left: 1px solid rgba(255,255,255,.1); }
+  .tb { width: 26px; height: 26px; border-radius: 8px; background: transparent; opacity: .55; }
+  .tb svg { width: 13px; height: 13px; }
+  .tb:hover { background: rgba(255,255,255,.12); opacity: 1; }
+  .tb.on { color: var(--a); opacity: 1; }
+  body.ghost .tools, body.ghost .ctrl, body.ghost .prog { pointer-events: none; }
+  .empty .title { opacity: .6; }
+</style>
+</head>
+<body class="empty">
+<div class="island">
+  <div class="bg" id="bg"></div><div class="tint"></div>
+  <div class="top">
+    <div class="cover" id="cover" title="Развернуть Яндекс Музыку"></div>
+    <div class="meta">
+      <div class="title" id="title">Ничего не играет</div>
+      <div class="artist" id="artist">Яндекс Музыка</div>
+    </div>
+    <div class="ctrl">
+      <button class="ib" id="prev" title="Предыдущий"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button class="play" id="play" title="Играть / пауза"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
+      <button class="ib" id="next" title="Следующий"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    </div>
+  </div>
+  <div class="prog">
+    <span id="cur">0:00</span>
+    <div class="bar" id="bar"><div class="fill" id="fill"></div><div class="knob" id="knob"></div><div class="tip" id="tip">0:00</div></div>
+    <span id="dur">0:00</span>
+  <div class="tools">
+      <button class="tb" id="like" title="Нравится"><svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.2 0 3.6 1.2 5.2 3 1.6-1.8 3-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></svg></button>
+      <button class="tb" id="ghost" title="Призрак: прозрачный и не мешает кликам (Ctrl+Alt+G)"><svg viewBox="0 0 24 24"><path d="M12 2a8 8 0 0 0-8 8v12l3-2 2.5 2 2.5-2 2.5 2 2.5-2 3 2V10a8 8 0 0 0-8-8zm-3 7a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg></button>
+      <button class="tb" id="hide" title="Спрятать (вернуть — Ctrl+Alt+M)"><svg viewBox="0 0 24 24"><path d="M5 11h14v2H5z"/></svg></button>
+      <button class="tb" id="restore" title="Развернуть Яндекс Музыку"><svg viewBox="0 0 24 24"><path d="M4 4h7v2H7.4l4.3 4.3-1.4 1.4L6 7.4V11H4zm16 16h-7v-2h3.6l-4.3-4.3 1.4-1.4 4.3 4.3V13h2z"/></svg></button>
+  </div>
+</div>
+</div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const PLAY = '<path d="M8 5v14l11-7z"/>';
+  const PAUSE = '<path d="M7 5h4v14H7zm6 0h4v14h-4z"/>';
+  const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+  let st = { position: 0, duration: 0, playing: false }, stamp = performance.now(), cover = "", dragging = null;
+  const posNow = () => (st.playing ? Math.min(st.duration || 0, st.position + (performance.now() - stamp) / 1000) : st.position);
+  function render() {
+    const pos = dragging != null ? dragging * (st.duration || 0) : posNow();
+    const p = st.duration ? (pos / st.duration) * 100 : 0;
+    $("fill").style.width = `${p}%`;
+    $("knob").style.left = `${p}%`;
+    $("cur").textContent = fmt(pos);
+    $("dur").textContent = fmt(st.duration);
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+  window.ymmMini.onState((s) => {
+    if (s.partial) {
+      if ("ghost" in s) { document.body.classList.toggle("ghost", s.ghost); $("ghost").classList.toggle("on", s.ghost); }
+      return;
+    }
+    st = s; stamp = performance.now();
+    document.body.classList.toggle("empty", !s.title);
+    document.body.classList.toggle("playing", !!s.playing);
+    $("title").textContent = s.title || "Ничего не играет";
+    $("artist").textContent = s.artist || "Яндекс Музыка";
+    $("playIcon").innerHTML = s.playing ? PAUSE : PLAY;
+    $("like").classList.toggle("on", !!s.liked);
+    if (s.accent) document.documentElement.style.setProperty("--a", s.accent);
+    if (s.onAccent) document.documentElement.style.setProperty("--on-a", s.onAccent);
+    if (s.cover !== cover) {
+      cover = s.cover || "";
+      const url = cover ? `url("${cover.replace(/"/g, "")}")` : "none";
+      $("cover").style.backgroundImage = url;
+      $("bg").style.backgroundImage = url;
+    }
+  });
+  const cmd = (c, v) => window.ymmMini.cmd(c, v);
+  $("play").onclick = () => { st.position = posNow(); stamp = performance.now(); st.playing = !st.playing; $("playIcon").innerHTML = st.playing ? PAUSE : PLAY; cmd("toggle"); };
+  $("next").onclick = () => cmd("next");
+  $("prev").onclick = () => cmd("prev");
+  $("like").onclick = () => cmd("like");
+  $("ghost").onclick = () => cmd("ghost");
+  $("hide").onclick = () => cmd("hide");
+  $("restore").onclick = () => cmd("restore");
+  $("cover").onclick = () => cmd("restore");
+  const bar = $("bar");
+  const frac = (e) => { const r = bar.getBoundingClientRect(); return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); };
+  bar.addEventListener("mousemove", (e) => {
+    const f = frac(e);
+    $("tip").style.left = `${f * 100}%`;
+    $("tip").textContent = fmt(f * (st.duration || 0));
+    if (dragging != null) dragging = f;
+  });
+  bar.addEventListener("mousedown", (e) => { dragging = frac(e); });
+  window.addEventListener("mouseup", (e) => {
+    if (dragging == null) return;
+    const f = dragging; dragging = null;
+    st.position = f * (st.duration || 0); stamp = performance.now();
+    cmd("seek", f);
+  });
+</script>
+</body>
+</html>
