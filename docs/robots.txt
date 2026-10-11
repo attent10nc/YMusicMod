@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://attent10nc.github.io/YMusicMod/sitemap.xml
