@@ -86,7 +86,11 @@ namespace YMusicMod
             Patcher.ForgetAppDir();
             // Удаляем свою папку уже после выхода.
             if (Directory.Exists(InstallDir))
-                Process.Start(new ProcessStartInfo("cmd.exe", "/c timeout /t 3 /nobreak >nul & rmdir /s /q \"" + InstallDir + "\"") { CreateNoWindow = true, UseShellExecute = false });
+            {
+                int me = Process.GetCurrentProcess().Id;
+                string ps = "Wait-Process -Id " + me + " -ErrorAction SilentlyContinue; Start-Sleep 1; Remove-Item -LiteralPath '" + InstallDir.Replace("'", "''") + "' -Recurse -Force -ErrorAction SilentlyContinue";
+                Process.Start(new ProcessStartInfo("powershell.exe", "-NoProfile -WindowStyle Hidden -Command \"" + ps + "\"") { CreateNoWindow = true, UseShellExecute = false });
+            }
             log("Мод удалён. Настройки и фоны остались в %APPDATA%\\YandexMusic\\YMusicMod");
         }
 

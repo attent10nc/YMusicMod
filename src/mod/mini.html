@@ -124,19 +124,27 @@
   $("cover").onclick = () => cmd("restore");
   const bar = $("bar");
   const frac = (e) => { const r = bar.getBoundingClientRect(); return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)); };
-  bar.addEventListener("mousemove", (e) => {
+  // pointer capture: отпускание кнопки засчитается, даже если мышь ушла за окно
+  bar.addEventListener("pointermove", (e) => {
     const f = frac(e);
     $("tip").style.left = `${f * 100}%`;
     $("tip").textContent = fmt(f * (st.duration || 0));
     if (dragging != null) dragging = f;
   });
-  bar.addEventListener("mousedown", (e) => { dragging = frac(e); });
-  window.addEventListener("mouseup", (e) => {
+  bar.addEventListener("pointerdown", (e) => {
+    bar.setPointerCapture(e.pointerId);
+    dragging = frac(e);
+  });
+  const finish = (commit) => {
     if (dragging == null) return;
     const f = dragging; dragging = null;
+    if (!commit) return;
     st.position = f * (st.duration || 0); stamp = performance.now();
     cmd("seek", f);
-  });
+  };
+  bar.addEventListener("pointerup", () => finish(true));
+  bar.addEventListener("pointercancel", () => finish(false));
+  bar.addEventListener("lostpointercapture", () => finish(true));
 </script>
 </body>
 </html>
