@@ -138,7 +138,7 @@ namespace YMusicMod
                             var fi = new FileInfo(Patcher.AsarPath);
                             string stamp = fi.Length + ":" + fi.LastWriteTimeUtc.Ticks;
                             bool settled = (DateTime.UtcNow - fi.LastWriteTimeUtc).TotalSeconds > 20;
-                            if (stamp != lastStamp && settled)
+                            if (stamp != lastStamp && settled && !UpdaterRunning())
                             {
                                 if (Patcher.NeedsPatch())
                                 {
@@ -150,10 +150,17 @@ namespace YMusicMod
                                             Patcher.Patch(s => { });
                                             Notify(tray, "Мод снова на месте", "Яндекс Музыка обновилась до " + ver + ", YMusicMod восстановлен.");
                                         }
-                                        catch (Exception e)
+                                        catch (PatchException e)
                                         {
+                                            // несовместимая версия - не долбим каждые 15 секунд
                                             failedFor = ver;
                                             Notify(tray, "YMusicMod", e.Message);
+                                        }
+                                        catch
+                                        {
+                                            // файл занят и т.п. - попробуем на следующем круге
+                                            Thread.Sleep(15000);
+                                            continue;
                                         }
                                     }
                                 }
@@ -166,6 +173,24 @@ namespace YMusicMod
                     Thread.Sleep(15000);
                 }
             }
+        }
+
+        // Пока работает установщик обновления, файлы приложения трогать нельзя.
+        static bool UpdaterRunning()
+        {
+            string updater = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "yandexmusic-updater");
+            foreach (var p in Process.GetProcesses())
+            {
+                try
+                {
+                    string n = p.ProcessName;
+                    if (n.StartsWith("Yandex_Music", StringComparison.OrdinalIgnoreCase) || n.StartsWith("Uninstall", StringComparison.OrdinalIgnoreCase) && p.MainModule.FileName.StartsWith(Patcher.AppDir, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                    if (p.MainModule.FileName.StartsWith(updater, StringComparison.OrdinalIgnoreCase)) return true;
+                }
+                catch { }
+            }
+            return false;
         }
 
         static void Notify(NotifyIcon tray, string title, string text)

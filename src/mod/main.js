@@ -99,12 +99,14 @@ let ymmConfigCache = null;
 const ymmLoad = () => {
   if (ymmConfigCache) return ymmConfigCache;
   ymmEnsureDirs();
-  let raw = {};
+  let raw = null;
   try {
     raw = JSON.parse(ymmFs.readFileSync(YMM_CONFIG, "utf8"));
   } catch {
   }
-  if (!raw.version) {
+  // Миграция нужна только старым конфигам без поля version; первый запуск получает дефолты.
+  if (!raw || typeof raw !== "object") raw = { version: 2 };
+  else if (!raw.version) {
     raw = { ...raw, accentMode: raw.accent ? "fixed" : "off", thumbStyle: "pinwheel", visualizer: "off" };
     const existing = ymmFs.readdirSync(YMM_ASSETS).filter((f) => [...YMM_IMAGE_EXT, ...YMM_VIDEO_EXT].includes(ymmPath.extname(f).toLowerCase()));
     raw.backgrounds = existing;
@@ -413,7 +415,7 @@ const YMM_MINI_HTML = __YMMOD_MINI_HTML__;
 const YMM_MINI_PRELOAD = 'const { contextBridge, ipcRenderer } = require("electron");\n' +
   'contextBridge.exposeInMainWorld("ymmMini", { cmd: (c, v) => ipcRenderer.send("ymmod-mini:cmd", c, v), onState: (cb) => ipcRenderer.on("ymmod-mini:state", (_e, s) => cb(s)) });\n';
 const YMM_MINI_W = 480, YMM_MINI_H = 156;
-const ymmMini = { win: null, main: null, pos: null, userHidden: false, fsHidden: false, ghost: false, watcher: null };
+const ymmMini = { win: null, main: null, pos: null, userHidden: false, fsHidden: false, ghost: false, watcher: null, quitting: false };
 const YMM_FS_SCRIPT = `
 $ErrorActionPreference = 'SilentlyContinue'
 Add-Type @'
@@ -572,7 +574,7 @@ const ymmSetMini = (mainWin, on) => {
     ymmMini.userHidden = false;
     ymmStopFsWatcher();
     ymmMiniShortcuts(false);
-    if (mainWin && !mainWin.isDestroyed()) {
+    if (mainWin && !mainWin.isDestroyed() && !ymmMini.quitting) {
       mainWin.webContents.setBackgroundThrottling(true);
       mainWin.show();
       mainWin.webContents.executeJavaScript("window.__ymmMiniClosed && window.__ymmMiniClosed()").catch(() => {});
@@ -737,6 +739,7 @@ const ymmRegisterIpc = () => {
   });
 };
 ymmElectron.app.on("before-quit", () => {
+  ymmMini.quitting = true;
   ymmDiscord.configure(false, "");
   if (ymmMini.win && !ymmMini.win.isDestroyed()) ymmMini.win.destroy();
 });

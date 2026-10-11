@@ -69,6 +69,7 @@
       cfg.activePreset = null;
       pending.activePreset = null;
     }
+    if ("discordRpc" in patch || "discordClientId" in patch) discord.lastKey = "";
     flush();
     applyAll();
     if (!opts.silent) ui.sync();
@@ -79,7 +80,7 @@
     applyAll();
     ui.render();
   };
-  const PRESET_KEYS = ["blur", "dim", "saturation", "contentAlpha", "bgMode", "slideInterval", "accentMode", "accent", "rounded", "glow", "playerGlass", "hideWaveArt", "beatSync", "beatIntensity", "bgPulse", "thumbStyle", "thumbRainbow", "visualizer", "visualizerOpacity", "reducedMotion"];
+  const PRESET_KEYS = ["blur", "dim", "saturation", "contentAlpha", "bgMode", "slideInterval", "accentMode", "accent", "rounded", "glow", "playerGlass", "hideWaveArt", "beatSync", "beatIntensity", "bgPulse", "thumbStyle", "thumbRainbow", "visualizer", "visualizerOpacity", "reducedMotion", "cleanVibe"];
   const BUILTIN_PRESETS = {
     "Неон": { blur: 6, dim: 45, saturation: 140, contentAlpha: 50, accentMode: "fixed", accent: "#ff2d95", rounded: true, glow: true, playerGlass: 22, beatSync: true, beatIntensity: 85, bgPulse: true, thumbStyle: "pinwheel", thumbRainbow: true, visualizer: "mirror", visualizerOpacity: 85, reducedMotion: false },
     "Стекло": { blur: 28, dim: 25, saturation: 120, contentAlpha: 35, accentMode: "cover", rounded: true, glow: false, playerGlass: 32, beatSync: true, beatIntensity: 45, bgPulse: false, thumbStyle: "orb", thumbRainbow: false, visualizer: "wave", visualizerOpacity: 55, reducedMotion: false },
@@ -116,6 +117,7 @@
     ui: "#ff5c4d",
     coverUrl: null,
     coverHex: null,
+    coverHexUrl: null,
     set(hex) {
       if (!/^#[0-9a-f]{6}$/i.test(hex)) return;
       this.current = hex;
@@ -129,21 +131,30 @@
     resolve() {
       if (!cfg) return;
       if (cfg.accentMode === "fixed") this.set(cfg.accent);
-      else if (cfg.accentMode === "cover") this.set(this.coverHex || cfg.accent);
+      else if (cfg.accentMode === "cover") {
+        this.set(this.coverHex || cfg.accent);
+        if (this.coverUrl && this.coverHexUrl !== this.coverUrl) this.fetchCover(this.coverUrl);
+      }
       else this.set("#ffdb4d");
     },
-    async onCover(url) {
+    onCover(url) {
       if (!url || url === this.coverUrl) return;
       this.coverUrl = url;
-      if (!cfg || cfg.accentMode !== "cover") return;
+      if (cfg && cfg.accentMode === "cover") this.fetchCover(url);
+    },
+    async fetchCover(url) {
+      if (this.fetching === url) return;
+      this.fetching = url;
       try {
         const hex = await api.coverColor(url);
         if (hex && url === this.coverUrl) {
           this.coverHex = hex;
+          this.coverHexUrl = url;
           if (cfg.accentMode === "cover") this.set(hex);
         }
       } catch {
       }
+      if (this.fetching === url) this.fetching = null;
     }
   };
 
@@ -465,6 +476,8 @@
       this.ensure();
       root.classList.toggle("ymm-has-bg", Boolean(name));
       if (name === this.currentName) return;
+      const file = name ? state.files.find((f) => f.name === name) : null;
+      if (name && !file) return;
       this.currentName = name;
       const next = this.layers[1 - this.active];
       const prev = this.layers[this.active];
@@ -474,8 +487,6 @@
         next.classList.remove("on");
         return;
       }
-      const file = state.files.find((f) => f.name === name);
-      if (!file) return;
       let media;
       if (file.kind === "video") {
         media = h("video", { src: file.url, muted: true, loop: true, playsinline: true, autoplay: true, preload: "auto", disablepictureinpicture: true });
@@ -509,6 +520,9 @@
       setOpt({ backgroundFile: list[(i + step + list.length) % list.length] }, { keepPreset: true });
     },
     schedule() {
+      const key = `${cfg.bgMode}|${cfg.slideInterval}|${cfg.backgrounds.length}`;
+      if (key === this.slideKey) return;
+      this.slideKey = key;
       clearInterval(this.slideTimer);
       if (cfg.bgMode === "slideshow" && cfg.backgrounds.length > 1) this.slideTimer = setInterval(() => this.next(1), cfg.slideInterval * 60000);
       else if (cfg.bgMode === "daynight") this.slideTimer = setInterval(() => this.show(this.fileFor()), 60000);
@@ -685,7 +699,7 @@ ${P}root"]{outline-offset:-1px;}`);
     } else if (vis.clear) vis.clear();
     loop.kick();
     ui.setButtonHidden(cfg.hideButton);
-    discord.push(true);
+    discord.push(false);
   }
 
   // volume
@@ -867,6 +881,8 @@ ${P}root"]{outline-offset:-1px;}`);
       return;
     }
     if (!e.ctrlKey || !e.shiftKey || e.altKey) return;
+    const t = e.composedPath()[0];
+    if (t && t.nodeType === 1 && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) && t.type !== "range" && t.type !== "checkbox") return;
     const hk = HOTKEYS.find(([k]) => e.code === `Key${k}`);
     if (!hk) return;
     e.preventDefault();

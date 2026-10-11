@@ -409,7 +409,9 @@ namespace YMusicMod
 
         public static void Restore(Action<string> log)
         {
-            if (!File.Exists(BakPath)) throw new PatchException("Нет чистой копии app.asar.bak — мод, похоже, не установлен.");
+            if (!File.Exists(BakPath)) throw new PatchException("Нет чистой копии app.asar.bak, мод, похоже, не установлен.");
+            if (!IsModdedAsar(AsarPath)) { log("Мод уже не установлен, файлы приложения не тронуты"); return; }
+            if (VersionOf(BakPath) != AppVersion()) throw new PatchException("Резервная копия от другой версии приложения. Переустановите Яндекс Музыку, чтобы вернуть оригинал.");
             bool wasRunning = AppRunning();
             if (wasRunning) CloseApp();
             File.Copy(BakPath, AsarPath, true);
