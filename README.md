@@ -9,6 +9,12 @@
 </p>
 
 <p align="center">
+  <a href="https://attent10nc.github.io/YMusicMod/"><b>Сайт проекта</b></a> ·
+  <a href="https://github.com/attent10nc/YMusicMod/releases">Все версии</a> ·
+  <a href="CHANGELOG.md">Что нового</a>
+</p>
+
+<p align="center">
   <img src="assets/badges.png" width="632" alt="Windows 10/11 · без привязки к версии · MIT">
 </p>
 
