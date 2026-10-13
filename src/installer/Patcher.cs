@@ -88,6 +88,29 @@ namespace YMusicMod
             return Encoding.UTF8.GetString(ReadFile(archive, path));
         }
 
+        // Читает все файлы под prefix одним проходом (заголовок архива парсится один раз).
+        public static Dictionary<string, byte[]> ReadAll(string archive, string prefix, string suffix)
+        {
+            long dataOffset;
+            var header = ReadHeader(archive, out dataOffset);
+            var list = new List<AsarEntry>();
+            Collect(header, "", list);
+            var result = new Dictionary<string, byte[]>();
+            using (var fs = new FileStream(archive, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            {
+                foreach (var e in list)
+                {
+                    if (e.Unpacked || !e.Path.StartsWith(prefix, StringComparison.Ordinal) || !e.Path.EndsWith(suffix, StringComparison.Ordinal)) continue;
+                    fs.Seek(dataOffset + e.Offset, SeekOrigin.Begin);
+                    var buf = new byte[e.Size];
+                    int read = 0;
+                    while (read < buf.Length) { int n = fs.Read(buf, read, buf.Length - read); if (n <= 0) break; read += n; }
+                    result[e.Path] = buf;
+                }
+            }
+            return result;
+        }
+
         static Dictionary<string, object> Integrity(byte[] data)
         {
             const int block = 4 * 1024 * 1024;
@@ -382,6 +405,27 @@ namespace YMusicMod
             var repl = new Dictionary<string, byte[]>();
             repl[entry] = utf8.GetBytes(code);
             repl[preloadName] = utf8.GetBytes(preload);
+            // Плавные списки: меньше ожидания после прокрутки и строки рендерятся заранее
+            // (то же, что делает scripts/patch.mjs). Не нашли шаблонов - просто пропускаем.
+            int tuned = 0;
+            var tune = new[] {
+                new KeyValuePair<Regex, string>(new Regex("debounceDurationInMs:300(?![0-9])"), "debounceDurationInMs:40"),
+                new KeyValuePair<Regex, string>(new Regex("overscan:([A-Za-z_$][\\w$]*)=700(?![0-9])"), "overscan:$1=1600")
+            };
+            try
+            {
+                foreach (var kv in Asar.ReadAll(baseAsar, "app/_next/static/chunks/", ".js"))
+                {
+                    string js = utf8.GetString(kv.Value);
+                    if (js.IndexOf("debounceDurationInMs", StringComparison.Ordinal) < 0 && js.IndexOf("overscan:", StringComparison.Ordinal) < 0) continue;
+                    string after = js;
+                    foreach (var t in tune) { tuned += t.Key.Matches(after).Count; after = t.Key.Replace(after, t.Value); }
+                    if (after != js) repl[kv.Key] = utf8.GetBytes(after);
+                }
+            }
+            catch (Exception e) { log("Списки не тронуты: " + e.Message); }
+            if (tuned > 0) log("Списки ускорены (" + tuned + ")");
+
             string tmp = AsarPath + ".ymmod-tmp";
             Asar.Rewrite(baseAsar, tmp, repl);
             log("Архив собран");

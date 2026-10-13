@@ -16,8 +16,13 @@ const YMM_IMAGE_EXT = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif"
 const YMM_VIDEO_EXT = [".mp4", ".webm", ".mov", ".m4v"];
 const YMM_MIME = {
   ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif",
-  ".bmp": "image/bmp", ".avif": "image/avif", ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".m4v": "video/mp4"
+  ".bmp": "image/bmp", ".avif": "image/avif", ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime", ".m4v": "video/mp4",
+  ".ttf": "font/ttf", ".otf": "font/otf", ".woff": "font/woff", ".woff2": "font/woff2", ".svg": "image/svg+xml", ".ico": "image/x-icon"
 };
+const YMM_FONT_EXT = [".ttf", ".otf", ".woff", ".woff2"];
+const YMM_LOGO_EXT = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".ico", ".bmp"];
+const YMM_STATS = ymmPath.join(YMM_DIR, "stats.json");
+const YMM_LOGO_PNG = "__YMMOD_LOGO_PNG__";
 const YMM_HEX = /^#[0-9a-fA-F]{6}$/;
 
 const YMM_PRESET_KEYS = [
@@ -38,13 +43,20 @@ const YMM_DEFAULTS = {
   reducedMotion: false, hideButton: false, volumeWheel: true,
   discordRpc: true, discordClientId: "1558904911515754496",
   cleanVibe: true, miniAutoHide: true, miniPos: null,
-  presets: {}, activePreset: null
+  presets: {}, activePreset: null,
+  sound: "off", studioAmount: 60, studioWidth: 50, studioAmbience: 20, leveler: false, playMode: "normal",
+  fontFamily: "", fontSource: "", fontFile: null, fontHeadings: true, fontFiles: [],
+  logoMode: "original", logoFile: null, logoText: "YMusicMod", logoWindowIcon: false,
+  hideKids: false, hidePodcasts: false,
+  prefetchCovers: true, scrollBoost: true
 };
 const ymmClamp = (v, lo, hi, d) => {
   const n = Number(v);
   return Number.isFinite(n) ? Math.min(Math.max(n, lo), hi) : d;
 };
 const ymmEnum = (v, list, d) => (list.includes(v) ? v : d);
+// Имя шрифта попадает в CSS - вырезаем всё, что может закрыть строку или правило.
+const ymmCssName = (v, n) => String(v).replace(/["'\\;{}<>()]/g, "").trim().slice(0, n);
 const ymmSafeFile = (v) => (typeof v === "string" && /^[\w.-]+$/.test(v) && ymmFs.existsSync(ymmPath.join(YMM_ASSETS, v)) ? v : null);
 
 const ymmSanitize = (raw, base = YMM_DEFAULTS) => {
@@ -83,6 +95,23 @@ const ymmSanitize = (raw, base = YMM_DEFAULTS) => {
     c.presets = out;
   }
   if (has("miniPos")) c.miniPos = r.miniPos && Number.isFinite(r.miniPos.x) && Number.isFinite(r.miniPos.y) ? { x: Math.round(r.miniPos.x), y: Math.round(r.miniPos.y) } : null;
+  if (has("sound")) c.sound = ymmEnum(r.sound, ["off", "studio"], c.sound);
+  if (has("studioAmount")) c.studioAmount = ymmClamp(r.studioAmount, 0, 100, c.studioAmount);
+  if (has("studioWidth")) c.studioWidth = ymmClamp(r.studioWidth, 0, 100, c.studioWidth);
+  if (has("studioAmbience")) c.studioAmbience = ymmClamp(r.studioAmbience, 0, 100, c.studioAmbience);
+  if (has("playMode")) c.playMode = ymmEnum(r.playMode, ["normal", "slowed", "nightcore", "8d"], c.playMode);
+  for (const k of ["leveler", "fontHeadings", "logoWindowIcon", "hideKids", "hidePodcasts", "prefetchCovers", "scrollBoost"]) {
+    if (has(k)) c[k] = Boolean(r[k]);
+  }
+  if (has("fontFamily")) c.fontFamily = typeof r.fontFamily === "string" ? ymmCssName(r.fontFamily, 80) : "";
+  if (has("fontSource")) c.fontSource = ymmEnum(r.fontSource, ["", "google", "system", "file"], c.fontSource);
+  if (has("fontFile")) c.fontFile = r.fontFile === null ? null : ymmSafeFile(r.fontFile);
+  if (has("fontFiles") && Array.isArray(r.fontFiles)) {
+    c.fontFiles = r.fontFiles.filter((f) => f && ymmSafeFile(f.file)).map((f) => ({ file: f.file, name: ymmCssName(String(f.name || f.file), 60) })).slice(0, 100);
+  }
+  if (has("logoMode")) c.logoMode = ymmEnum(r.logoMode, ["original", "mod", "custom"], c.logoMode);
+  if (has("logoFile")) c.logoFile = r.logoFile === null ? null : ymmSafeFile(r.logoFile);
+  if (has("logoText")) c.logoText = typeof r.logoText === "string" ? r.logoText.slice(0, 24) : c.logoText;
   if (has("activePreset")) c.activePreset = typeof r.activePreset === "string" ? r.activePreset.slice(0, 40) : null;
   if (c.backgroundFile && !c.backgrounds.includes(c.backgroundFile)) c.backgrounds.push(c.backgroundFile);
   return c;
@@ -159,7 +188,18 @@ const ymmPayload = () => {
     appVersion = ymmElectron.app.getVersion();
   } catch {
   }
-  return { config: cfg, files, modVersion: YMM_VERSION, appVersion, discord: ymmDiscord.status() };
+  const assetUrl = (name) => {
+    if (!name) return null;
+    let mtime = 0;
+    try {
+      mtime = Math.round(ymmFs.statSync(ymmPath.join(YMM_ASSETS, name)).mtimeMs);
+    } catch {
+      return null;
+    }
+    return `${YMM_SCHEME}://assets/${encodeURIComponent(name)}?v=${mtime}`;
+  };
+  const fonts = cfg.fontFiles.map((f) => ({ ...f, url: assetUrl(f.file) })).filter((f) => f.url);
+  return { config: cfg, files, fonts, logoUrl: assetUrl(cfg.logoFile), modVersion: YMM_VERSION, appVersion, discord: ymmDiscord.status() };
 };
 
 // Протокол ymmod:// (фоны и окно мини-плеера)
@@ -632,6 +672,120 @@ const ymmImportFile = (src) => {
   return name;
 };
 
+const ymmImportAs = (src, prefix, exts) => {
+  const ext = ymmPath.extname(src).toLowerCase();
+  if (!exts.includes(ext)) return null;
+  const hash = ymmCrypto.createHash("sha1").update(ymmFs.readFileSync(src)).digest("hex").slice(0, 10);
+  const name = `${prefix}-${hash}${ext}`;
+  const dest = ymmPath.join(YMM_ASSETS, name);
+  if (!ymmFs.existsSync(dest)) ymmFs.copyFileSync(src, dest);
+  return name;
+};
+
+// Системные шрифты: список берём у .NET, один раз за запуск.
+let ymmSystemFonts = null;
+const ymmListSystemFonts = () => {
+  if (ymmSystemFonts) return ymmSystemFonts;
+  ymmSystemFonts = new Promise((resolve) => {
+    if (process.platform !== "win32") return resolve([]);
+    const cp = require("node:child_process");
+    const script = "[Console]::OutputEncoding=[Text.Encoding]::UTF8; Add-Type -AssemblyName System.Drawing; (New-Object System.Drawing.Text.InstalledFontCollection).Families | ForEach-Object { $_.Name }";
+    cp.execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")], { windowsHide: true, maxBuffer: 4 << 20, timeout: 20000 }, (err, out) => {
+      if (err) {
+        ymmSystemFonts = null;
+        return resolve([]);
+      }
+      resolve([...new Set(String(out).split(/\r?\n/).map((x) => ymmCssName(x, 80)).filter(Boolean))].sort((a, b) => a.localeCompare(b)));
+    });
+  });
+  return ymmSystemFonts;
+};
+
+// Статистика прослушиваний (только локально).
+let ymmStatsCache = null;
+let ymmStatsTimer = null;
+const ymmStatsLoad = () => {
+  if (ymmStatsCache) return ymmStatsCache;
+  try {
+    ymmStatsCache = JSON.parse(ymmFs.readFileSync(YMM_STATS, "utf8"));
+  } catch {
+  }
+  if (!ymmStatsCache || typeof ymmStatsCache !== "object") ymmStatsCache = {};
+  for (const k of ["days", "tracks", "artists", "hours"]) if (!ymmStatsCache[k] || typeof ymmStatsCache[k] !== "object") ymmStatsCache[k] = {};
+  return ymmStatsCache;
+};
+const ymmStatsSave = (now) => {
+  clearTimeout(ymmStatsTimer);
+  const write = () => {
+    try {
+      ymmEnsureDirs();
+      ymmFs.writeFileSync(YMM_STATS + ".tmp", JSON.stringify(ymmStatsCache), "utf8");
+      ymmFs.renameSync(YMM_STATS + ".tmp", YMM_STATS);
+    } catch (e) {
+      console.warn("[YMusicMod] stats save", e);
+    }
+  };
+  if (now) write();
+  else ymmStatsTimer = setTimeout(write, 5000);
+};
+const ymmStatsAdd = (p) => {
+  if (!p || typeof p !== "object") return;
+  const sec = ymmClamp(p.seconds, 0, 120, 0);
+  const title = typeof p.title === "string" ? p.title.slice(0, 200) : "";
+  if (!title || !sec) return;
+  const artist = typeof p.artist === "string" ? p.artist.slice(0, 200) : "";
+  const cover = typeof p.cover === "string" && /^https:\/\//.test(p.cover) ? p.cover.slice(0, 400) : "";
+  const st = ymmStatsLoad();
+  const d = new Date();
+  const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  st.days[day] = (st.days[day] || 0) + sec;
+  st.hours[d.getHours()] = (st.hours[d.getHours()] || 0) + sec;
+  const key = `${artist} — ${title}`;
+  const t = st.tracks[key] || (st.tracks[key] = { title, artist, cover, sec: 0, plays: 0, last: 0 });
+  t.sec += sec;
+  if (cover) t.cover = cover;
+  if (p.newPlay) t.plays += 1;
+  t.last = Date.now();
+  for (const a of artist.split(/,\s*/).filter(Boolean)) {
+    const ar = st.artists[a] || (st.artists[a] = { sec: 0, plays: 0 });
+    ar.sec += sec;
+    if (p.newPlay) ar.plays += 1;
+  }
+  // Ограничиваем размер: давно не игравшие треки выкидываем.
+  const keys = Object.keys(st.tracks);
+  if (keys.length > 5000) {
+    keys.sort((a, b) => st.tracks[a].last - st.tracks[b].last).slice(0, keys.length - 4000).forEach((k) => delete st.tracks[k]);
+  }
+  ymmStatsSave(false);
+};
+ymmElectron.app.on("before-quit", () => {
+  if (ymmStatsCache) ymmStatsSave(true);
+});
+
+let ymmIconChanged = false;
+const ymmApplyWindowIcon = () => {
+  const cfg = ymmLoad();
+  let img = null;
+  if (cfg.logoWindowIcon) {
+    if (cfg.logoMode === "custom" && cfg.logoFile && !/\.svg$/i.test(cfg.logoFile)) img = ymmElectron.nativeImage.createFromPath(ymmPath.join(YMM_ASSETS, cfg.logoFile));
+    else img = ymmElectron.nativeImage.createFromDataURL(YMM_LOGO_PNG);
+    if (img && img.isEmpty()) img = null;
+  }
+  if (!img) {
+    if (!ymmIconChanged) return;
+    // Вернуть родную иконку из exe.
+    img = ymmElectron.nativeImage.createFromPath(process.execPath);
+  }
+  ymmIconChanged = Boolean(cfg.logoWindowIcon);
+  for (const w of ymmElectron.BrowserWindow.getAllWindows()) {
+    if (w === ymmMini.win || w.isDestroyed()) continue;
+    try {
+      if (img && !img.isEmpty()) w.setIcon(img);
+    } catch {
+    }
+  }
+};
+
 const ymmTrusted = (e) => {
   try {
     const frame = e.senderFrame;
@@ -660,6 +814,7 @@ const ymmRegisterIpc = () => {
     const next = ymmSanitize(patch, prev);
     ymmSave(next);
     if (prev.discordRpc !== next.discordRpc || prev.discordClientId !== next.discordClientId) ymmDiscord.configure(next.discordRpc, next.discordClientId);
+    if (prev.logoWindowIcon !== next.logoWindowIcon || prev.logoMode !== next.logoMode || prev.logoFile !== next.logoFile) ymmApplyWindowIcon();
     if (prev.miniAutoHide !== next.miniAutoHide && ymmMini.win && !ymmMini.win.isDestroyed()) {
       if (next.miniAutoHide) ymmStartFsWatcher();
       else ymmStopFsWatcher();
@@ -694,6 +849,66 @@ const ymmRegisterIpc = () => {
     }
     ymmSave(cfg);
     return ymmPayload();
+  });
+  ymmHandle("desktop:ymmod:add-font", async () => {
+    const res = await ymmElectron.dialog.showOpenDialog(ymmWin(), { title: "Добавить шрифт", properties: ["openFile", "multiSelections"], filters: [{ name: "Шрифты", extensions: YMM_FONT_EXT.map((e) => e.slice(1)) }] });
+    if (res.canceled || !res.filePaths.length) return ymmPayload();
+    ymmEnsureDirs();
+    const cfg = { ...ymmLoad() };
+    const list = [...cfg.fontFiles];
+    let last = null;
+    for (const src of res.filePaths) {
+      const file = ymmImportAs(src, "font", YMM_FONT_EXT);
+      if (!file) continue;
+      const name = ymmCssName(ymmPath.basename(src, ymmPath.extname(src)).replace(/[_-]+/g, " "), 60) || file;
+      if (!list.some((f) => f.file === file)) list.push({ file, name });
+      last = list.find((f) => f.file === file);
+    }
+    cfg.fontFiles = list;
+    if (last) Object.assign(cfg, { fontSource: "file", fontFile: last.file, fontFamily: last.name });
+    ymmSave(ymmSanitize(cfg, ymmLoad()));
+    return ymmPayload();
+  });
+  ymmHandle("desktop:ymmod:remove-font", async (_e, file) => {
+    const cfg = { ...ymmLoad() };
+    if (!cfg.fontFiles.some((f) => f.file === file)) return ymmPayload();
+    cfg.fontFiles = cfg.fontFiles.filter((f) => f.file !== file);
+    if (cfg.fontFile === file) Object.assign(cfg, { fontSource: "", fontFile: null, fontFamily: "" });
+    try {
+      ymmFs.unlinkSync(ymmPath.join(YMM_ASSETS, file));
+    } catch {
+    }
+    ymmSave(cfg);
+    return ymmPayload();
+  });
+  ymmHandle("desktop:ymmod:system-fonts", async () => ymmListSystemFonts());
+  ymmHandle("desktop:ymmod:set-logo", async () => {
+    const res = await ymmElectron.dialog.showOpenDialog(ymmWin(), { title: "Картинка для логотипа", properties: ["openFile"], filters: [{ name: "Картинки", extensions: YMM_LOGO_EXT.map((e) => e.slice(1)) }] });
+    if (res.canceled || !res.filePaths[0]) return ymmPayload();
+    ymmEnsureDirs();
+    const file = ymmImportAs(res.filePaths[0], "logo", YMM_LOGO_EXT);
+    if (file) {
+      const prev = ymmLoad();
+      if (prev.logoFile && prev.logoFile !== file) {
+        try {
+          ymmFs.unlinkSync(ymmPath.join(YMM_ASSETS, prev.logoFile));
+        } catch {
+        }
+      }
+      ymmSave(ymmSanitize({ logoFile: file, logoMode: "custom" }, prev));
+      ymmApplyWindowIcon();
+    }
+    return ymmPayload();
+  });
+  ymmHandle("desktop:ymmod:stats-add", async (_e, p) => {
+    ymmStatsAdd(p);
+    return true;
+  });
+  ymmHandle("desktop:ymmod:stats-get", async () => ymmStatsLoad());
+  ymmHandle("desktop:ymmod:stats-reset", async () => {
+    ymmStatsCache = { days: {}, tracks: {}, artists: {}, hours: {} };
+    ymmStatsSave(true);
+    return ymmStatsCache;
   });
   ymmHandle("desktop:ymmod:cover-color", async (_e, url) => {
     try {
@@ -744,12 +959,24 @@ ymmElectron.app.on("before-quit", () => {
   if (ymmMini.win && !ymmMini.win.isDestroyed()) ymmMini.win.destroy();
 });
 ymmElectron.app.whenReady().then(ymmRegisterIpc);
+ymmElectron.app.on("browser-window-created", () => setTimeout(ymmApplyWindowIcon, 500));
+
+// Больше дискового кэша: обложки и данные треков не перекачиваются при каждом запуске.
+try {
+  if (!ymmElectron.app.commandLine.hasSwitch("disk-cache-size")) ymmElectron.app.commandLine.appendSwitch("disk-cache-size", String(512 * 1024 * 1024));
+} catch {
+}
 
 const YMM_RENDERER = __YMMOD_RENDERER__;
 const ymmOnLoad = (wc) => {
   if (!wc || wc.isDestroyed() || wc.getType() !== "window") return;
   if (/^(https?|ymmod|file|data|about|devtools):/i.test(wc.getURL())) return;
   wc.executeJavaScript(YMM_RENDERER).catch((e) => console.warn("[YMusicMod] inject failed", e && e.message));
+  // Заранее открываем соединения к серверам обложек и API - первая картинка не ждёт TLS.
+  try {
+    for (const url of ["https://avatars.yandex.net", "https://api.music.yandex.net", "https://music.yandex.ru"]) wc.session.preconnect({ url, numSockets: url.includes("avatars") ? 6 : 2 });
+  } catch {
+  }
 };
 ymmElectron.app.on("web-contents-created", (_e, wc) => wc.on("did-finish-load", () => ymmOnLoad(wc)));
 })();

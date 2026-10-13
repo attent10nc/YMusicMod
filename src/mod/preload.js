@@ -15,7 +15,14 @@
       mini: call("mini"),
       miniState: call("mini-state"),
       discord: call("discord"),
-      openFolder: call("open-folder")
+      openFolder: call("open-folder"),
+      addFont: call("add-font"),
+      removeFont: call("remove-font"),
+      systemFonts: call("system-fonts"),
+      setLogo: call("set-logo"),
+      statsAdd: call("stats-add"),
+      statsGet: call("stats-get"),
+      statsReset: call("stats-reset")
     });
   } catch (e) {
     console.warn("[YMusicMod] bridge", e);

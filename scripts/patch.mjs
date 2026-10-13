@@ -30,6 +30,7 @@ const buildPayload = () => ({
   scheme: rd("scheme.js"),
   main: rd("main.js")
     .replace("__YMMOD_VERSION__", VERSION)
+    .replace("__YMMOD_LOGO_PNG__", () => `data:image/png;base64,${fs.readFileSync(path.join(ROOT, "assets", "logo-256.png")).toString("base64")}`)
     .replace("__YMMOD_RENDERER__", () => JSON.stringify(rd("renderer.js").replace("__YMMOD_LOGO__", `data:image/svg+xml;base64,${fs.readFileSync(path.join(ROOT, "assets", "logo.svg")).toString("base64")}`)))
     .replace("__YMMOD_MINI_HTML__", () => JSON.stringify(rd("mini.html"))),
   preload: rd("preload.js").replace("__YMMOD_EARLY__", () => rd("early.js"))
@@ -94,6 +95,34 @@ const strict = /^(\s*["']use strict["'];?\s*\n)/.exec(entryCode);
 const head = strict ? strict[1] : "";
 fs.writeFileSync(path.join(src, entry), `${head}${payload.scheme}\n${entryCode.slice(head.length)}\n${payload.main}\n`);
 fs.appendFileSync(path.join(src, preloadName), `\n${payload.preload}\n`);
+
+// Плавные списки: виртуальный список треков ждёт 300 мс после прокрутки, прежде чем
+// запросить данные, и рендерит строки всего на 700 px вперёд - отсюда серые заглушки.
+// Данные теперь отдаёт кэш мода, так что ждать не нужно; строки готовим заранее.
+const TUNE = [
+  [/debounceDurationInMs:300(?![0-9])/g, "debounceDurationInMs:40"],
+  [/overscan:([A-Za-z_$][\w$]*)=700(?![0-9])/g, "overscan:$1=1600"]
+];
+let tuned = 0;
+const walk = (dir) => {
+  if (!fs.existsSync(dir)) return;
+  for (const f of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, f.name);
+    if (f.isDirectory()) walk(p);
+    else if (f.name.endsWith(".js")) {
+      const before = fs.readFileSync(p, "utf8");
+      if (!before.includes("debounceDurationInMs") && !before.includes("overscan:")) continue;
+      let after = before;
+      for (const [re, to] of TUNE) {
+        tuned += (after.match(re) || []).length;
+        after = after.replace(re, to);
+      }
+      if (after !== before) fs.writeFileSync(p, after);
+    }
+  }
+};
+walk(path.join(src, "app", "_next", "static", "chunks"));
+log(`списки: ${tuned} правок`);
 for (const f of [entry, preloadName]) execFileSync(process.execPath, ["--check", path.join(src, f)], { stdio: "inherit" });
 log(`entry: ${entry}, preload: ${preloadName}`);
 

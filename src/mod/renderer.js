@@ -39,6 +39,10 @@
     });
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
+  const LOGO = "__YMMOD_LOGO__";
+  const GOOGLE_FONTS = [["Inter", "sans"], ["Inter Tight", "sans"], ["Manrope", "sans"], ["Montserrat", "sans"], ["Montserrat Alternates", "display"], ["Rubik", "sans"], ["Nunito", "sans"], ["Nunito Sans", "sans"], ["Raleway", "sans"], ["Roboto", "sans"], ["Roboto Condensed", "sans"], ["Open Sans", "sans"], ["Onest", "sans"], ["Golos Text", "sans"], ["Geologica", "sans"], ["Geist", "sans"], ["Commissioner", "sans"], ["Jost", "sans"], ["Mulish", "sans"], ["Overpass", "sans"], ["Fira Sans", "sans"], ["IBM Plex Sans", "sans"], ["Ubuntu", "sans"], ["Noto Sans", "sans"], ["Source Sans 3", "sans"], ["PT Sans", "sans"], ["PT Sans Narrow", "sans"], ["Arimo", "sans"], ["Sofia Sans", "sans"], ["Sofia Sans Condensed", "sans"], ["Sofia Sans Extra Condensed", "sans"], ["Wix Madefor Display", "sans"], ["Wix Madefor Text", "sans"], ["Exo 2", "sans"], ["Play", "sans"], ["Jura", "sans"], ["Didact Gothic", "sans"], ["Scada", "sans"], ["Cuprum", "sans"], ["Tenor Sans", "sans"], ["Ysabeau", "sans"], ["Ysabeau Office", "sans"], ["Lunasima", "sans"], ["Advent Pro", "sans"], ["Oswald", "sans"], ["Yanone Kaffeesatz", "sans"], ["Comfortaa", "sans"], ["Bellota Text", "sans"], ["Kosugi Maru", "sans"], ["Shantell Sans", "hand"], ["PT Serif", "serif"], ["Lora", "serif"], ["Playfair Display", "serif"], ["Merriweather", "serif"], ["Roboto Slab", "serif"], ["IBM Plex Serif", "serif"], ["Noto Serif", "serif"], ["Source Serif 4", "serif"], ["Literata", "serif"], ["Spectral", "serif"], ["Tinos", "serif"], ["Vollkorn", "serif"], ["Cormorant", "serif"], ["Cormorant Garamond", "serif"], ["Alice", "serif"], ["Forum", "serif"], ["Ledger", "serif"], ["Bona Nova", "serif"], ["Oranienbaum", "serif"], ["Podkova", "serif"], ["Kelly Slab", "serif"], ["Kurale", "serif"], ["Philosopher", "serif"], ["Gabriela", "serif"], ["Yeseva One", "display"], ["Unbounded", "display"], ["Russo One", "display"], ["Dela Gothic One", "display"], ["Prosto One", "display"], ["Ruslan Display", "display"], ["Seymour One", "display"], ["Stalinist One", "display"], ["Rubik Mono One", "display"], ["Tektur", "display"], ["Handjet", "display"], ["Climate Crisis", "display"], ["Train One", "display"], ["Press Start 2P", "display"], ["Poiret One", "display"], ["Bellota", "display"], ["Stick", "display"], ["Underdog", "display"], ["Pattaya", "display"], ["Rubik Glitch", "display"], ["Rubik Wet Paint", "display"], ["Rubik Beastly", "display"], ["Rubik Doodle Shadow", "display"], ["Rubik Microbe", "display"], ["Rubik Puddles", "display"], ["Caveat", "hand"], ["Pacifico", "hand"], ["Lobster", "hand"], ["Marck Script", "hand"], ["Bad Script", "hand"], ["Neucha", "hand"], ["Pangolin", "hand"], ["Amatic SC", "hand"], ["Comforter", "hand"], ["JetBrains Mono", "mono"], ["Fira Code", "mono"], ["IBM Plex Mono", "mono"], ["Roboto Mono", "mono"], ["Ubuntu Mono", "mono"], ["PT Mono", "mono"], ["Victor Mono", "mono"], ["Martian Mono", "mono"], ["Geist Mono", "mono"]];
+  const FONT_CATS = [["all", "Все"], ["sans", "Гротески"], ["serif", "С засечками"], ["display", "Акцидентные"], ["hand", "Рукописные"], ["mono", "Моно"], ["system", "Windows"], ["file", "Мои"]];
+  const gfUrl = (name, extra = "") => `https://fonts.googleapis.com/css2?family=${encodeURIComponent(name).replace(/%20/g, "+")}${extra}&display=swap`;
   const SEL = {
     playerRoot: '[class*="PlayerBarDesktopWithBackgroundProgressBar_root"]',
     player: '[class*="PlayerBarDesktopWithBackgroundProgressBar_player__"]',
@@ -290,6 +294,19 @@
     }
   };
 
+  const scrolling = {
+    until: 0, timer: 0,
+    on() {
+      if (!cfg || !cfg.scrollBoost) return;
+      this.until = performance.now() + 220;
+      if (!this.timer) root.classList.add("ymm-scrolling");
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => {
+        this.timer = 0;
+        root.classList.remove("ymm-scrolling");
+      }, 240);
+    }
+  };
   // beat + visualizer loop
   const beat = { hist: new Float32Array(6), idx: 0, pulse: 0, level: 0, lo: 1, hi: 0, last: 0 };
   const vis = { canvas: null, ctx2d: null, w: 0, h: 0, dpr: 1, smooth: new Float32Array(96), peaks: new Float32Array(96) };
@@ -305,6 +322,11 @@
       if (!active) {
         setBeat(0);
         vis.clear && vis.clear();
+        return;
+      }
+      // Пока пользователь листает, не трогаем стили и канвас - весь кадр отдаём прокрутке.
+      if (cfg.scrollBoost && performance.now() < scrolling.until) {
+        loop.kick();
         return;
       }
       audio.analyser.getByteFrequencyData(audio.freq);
@@ -664,12 +686,39 @@ html:not(.ymm-playing) ${P}root"]{animation-play-state:paused;}
 @keyframes ymmGlow{0%,100%{outline:1px solid color-mix(in srgb,var(--ymm-accent-ui) 18%,transparent);}50%{outline:1px solid color-mix(in srgb,var(--ymm-accent-ui) 45%,transparent);}}
 ${P}root"]{outline-offset:-1px;}`);
     }
+    // Разделы меню: прячем только пункты навигации, сами страницы приложения не трогаем.
+    // Без :has() - на «Моей волне» DOM меняется каждый кадр, и :has() заставлял
+    // браузер пересчитывать стили без остановки (рост памяти и фризы на сборке мусора).
+    // Пункт <li> помечает nav.scan(), здесь только сама ссылка на случай, если метки ещё нет.
+    const hidden = [c.hideKids && "/kids", c.hidePodcasts && "/non-music"].filter(Boolean);
+    if (hidden.length) parts.push(`.ymm-nav-hidden,${hidden.map((href) => `nav a[href^="${href}"]`).join(",")}{display:none !important;}`);
+    if (c.logoMode !== "original") {
+      parts.push(`
+.ymm-logo-on>:not(.ymm-logo){display:none !important;}
+.ymm-logo{display:flex;align-items:center;gap:12px;height:48px;min-width:0;overflow:hidden;}
+.ymm-logo img{width:44px;height:44px;flex-shrink:0;border-radius:12px;object-fit:cover;filter:drop-shadow(0 4px 14px color-mix(in srgb,var(--ymm-accent-ui) 45%,transparent));}
+.ymm-logo span{font-family:var(--ym-font-heading,"YSMusic Headline"),sans-serif;font-weight:800;font-size:22px;line-height:1;white-space:nowrap;letter-spacing:-.3px;
+  background:linear-gradient(90deg,#fff 0%,color-mix(in oklab,var(--ymm-accent-ui) 70%,#fff) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;}`);
+    }
+    parts.push(`
+.ymm-q [class*="QualitySettings_item_option"]:first-child{color:var(--ymm-accent-ui);font-weight:700;}
+.ymm-q .ymm-check{margin-left:auto;padding-left:12px;font-size:16px;color:var(--ym-controls-color-primary-text-enabled,#fff);}
+.ymm-q{position:relative;}
+.ymm-q::before{content:"";position:absolute;inset:2px;border-radius:12px;pointer-events:none;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ymm-accent-ui) 40%,transparent);}
+html:not(.ymm-studio) .ymm-q .ymm-check{visibility:hidden;}
+html.ymm-studio [class*="QualitySettingsModal_modalContent"] [role=option]:not(.ymm-q) svg{visibility:hidden;}`);
+    // Строки списка за краем экрана остаются смонтированными (данные и обложки готовы),
+    // но не рисуются, пока не понадобятся. Высота строки фиксированная - 56 px.
+    if (c.scrollBoost) parts.push(`[class*="VirtualScroll_scroller"] [data-index]>[class*="CommonTrack_root"]{content-visibility:auto;contain-intrinsic-size:auto 56px;}`);
+    // Во время прокрутки ставим на паузу декоративные анимации.
+    parts.push(`html.ymm-scrolling ${P}root"],html.ymm-scrolling ${P}thumb"]::before,html.ymm-scrolling #ymmod-vis{animation-play-state:paused !important;}
+html.ymm-scrolling #ymmod-bg .ymm-slot{transition:none !important;}`);
     if (c.reducedMotion) {
       parts.push(`${P}thumb"]::before,${P}root"]{animation:none !important;}#ymmod-bg .ymm-slot{transition:none !important;transform:none !important;}`);
     }
     return parts.join("\n");
   }
-  const STRUCTURAL = ["hideWaveArt", "cleanVibe", "accentMode", "thumbStyle", "thumbRainbow", "rounded", "glow", "reducedMotion"];
+  const STRUCTURAL = ["hideWaveArt", "cleanVibe", "accentMode", "thumbStyle", "thumbRainbow", "rounded", "glow", "reducedMotion", "hideKids", "hidePodcasts", "logoMode", "scrollBoost"];
   function applyVars() {
     const s = root.style;
     s.setProperty("--ymm-blur", `${cfg.blur}px`);
@@ -700,7 +749,275 @@ ${P}root"]{outline-offset:-1px;}`);
     loop.kick();
     ui.setButtonHidden(cfg.hideButton);
     discord.push(false);
+    sound.apply();
+    font.apply();
+    if (window.__ymmCovers) window.__ymmCovers.enabled = cfg.prefetchCovers;
+    logo.scan();
+    nav.scan();
   }
+
+  // студийный звук
+  const sound = {
+    apply() {
+      root.classList.toggle("ymm-studio", cfg.sound === "studio");
+      if (!window.__ymmFx) return;
+      window.__ymmFx.set({ studio: cfg.sound === "studio", amount: cfg.studioAmount, width: cfg.studioWidth, ambience: cfg.studioAmbience, leveler: cfg.leveler, mode: cfg.playMode });
+    },
+    status() {
+      const fx = window.__ymmFx;
+      if (!fx) return ["warn", "Движок не загрузился"];
+      if (cfg.sound !== "studio" && cfg.playMode === "normal" && !cfg.leveler) return ["", "Обработка выключена"];
+      if (fx.count > 0 && fx.peak() > 0.0005) return ["ok", "Обработка работает"];
+      if (fx.count > 0) return ["ok", "Подключено · ждёт музыку"];
+      return ["warn", "Подключится с первым треком"];
+    }
+  };
+  // Пункт «Студийное» в окне «Настройки звука» самого Яндекса.
+  const quality = {
+    bound: new WeakSet(),
+    picking: false,
+    scan() {
+      const box = $('[class*="QualitySettingsModal_modalContent"]') || $('[class*="QualitySettings_root"]');
+      if (!box || !cfg) return;
+      const high = box.querySelector('[data-test-id="QUALITY_SETTINGS_CONTEXT_MENU_ITEM_HIGH_QUALITY"]');
+      if (!high) return;
+      let mine = box.querySelector(".ymm-q");
+      if (!mine) {
+        mine = high.cloneNode(true);
+        mine.classList.add("ymm-q");
+        mine.removeAttribute("data-test-id");
+        mine.querySelectorAll("svg").forEach((x) => x.remove());
+        const opts = mine.querySelectorAll('[class*="QualitySettings_item_option"]');
+        if (opts.length < 2) return;
+        const t = [...opts[0].childNodes].find((n) => n.nodeType === 3);
+        if (t) t.nodeValue = "Студийное ✦ ";
+        else opts[0].prepend("Студийное ✦ ");
+        opts[1].textContent = "Lossless + студийная обработка: тёплый бас, воздух на верхах, широкая сцена и мягкий лимитер";
+        const wrap = mine.querySelector('[class*="QualitySettings_itemWrapper"]');
+        (wrap ? wrap.parentElement : mine).append(h("span", { class: "ymm-check", "aria-hidden": "true" }, "✓"));
+        mine.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.pick();
+        }, true);
+        high.before(mine);
+      }
+      box.querySelectorAll("[role=option]:not(.ymm-q)").forEach((b) => {
+        if (this.bound.has(b)) return;
+        this.bound.add(b);
+        b.addEventListener("click", () => {
+          if (!this.picking && cfg.sound === "studio") {
+            setOpt({ sound: "off" });
+            toast("Студийная обработка выключена");
+          }
+        });
+      });
+      mine.setAttribute("aria-selected", String(cfg.sound === "studio"));
+    },
+    pick() {
+      const high = $('[data-test-id="QUALITY_SETTINGS_CONTEXT_MENU_ITEM_HIGH_QUALITY"]');
+      // Студийная обработка всегда поверх lossless.
+      if (high && high.getAttribute("aria-selected") !== "true") {
+        this.picking = true;
+        high.click();
+        setTimeout(() => (this.picking = false), 300);
+      }
+      setOpt({ sound: "studio" });
+      toast("Студийное звучание ✦");
+      setTimeout(() => this.scan(), 50);
+    }
+  };
+
+  // шрифт
+  const font = {
+    style: null, link: null, key: "", system: null, previewed: new Set(),
+    family() {
+      return cfg.fontFamily;
+    },
+    apply() {
+      const key = [cfg.fontSource, cfg.fontFamily, cfg.fontFile, cfg.fontHeadings, (state.fonts || []).length].join("|");
+      if (key === this.key) return;
+      this.key = key;
+      if (!this.style) {
+        this.style = h("style", { id: "ymmod-font" });
+        document.head.appendChild(this.style);
+      }
+      if (this.link) this.link.remove();
+      this.link = null;
+      const fam = cfg.fontFamily;
+      if (!fam) {
+        this.style.textContent = "";
+        return;
+      }
+      let face = "";
+      if (cfg.fontSource === "google") {
+        this.link = h("link", { rel: "stylesheet", href: gfUrl(fam, ":wght@400;500;700;800") });
+        document.head.appendChild(this.link);
+      } else if (cfg.fontSource === "file") {
+        const f = (state.fonts || []).find((x) => x.file === cfg.fontFile);
+        if (f) face = `@font-face{font-family:"${fam}";src:url("${f.url}");font-display:swap;}`;
+      }
+      const stack = `"${fam}","YS Text",system-ui,sans-serif`;
+      // Переменные шрифта Яндекс задаёт на .ym-font-music - переопределяем там же, а не на «*»:
+      // правило на каждом элементе удорожало отрисовку каждой новой строки списка.
+      this.style.textContent = `${face}
+:root,.ym-font-music{--ym-font-text:${stack} !important;${cfg.fontHeadings ? `--ym-font-heading:${stack} !important;` : ""}}
+html,body,button,input,textarea,select{font-family:${stack} !important;}
+${cfg.fontHeadings ? `h1,h2,h3,h4{font-family:${stack} !important;}` : ""}`;
+    },
+    preview(name) {
+      if (this.previewed.has(name)) return;
+      this.previewed.add(name);
+      document.head.appendChild(h("link", { rel: "stylesheet", href: gfUrl(name, `&text=${encodeURIComponent(name + "Аа Яя0123")}`) }));
+    },
+    async systemList() {
+      if (!this.system) {
+        try {
+          this.system = await api.systemFonts();
+        } catch {
+          this.system = [];
+        }
+      }
+      return this.system;
+    }
+  };
+
+  // скрытые разделы меню
+  const nav = {
+    scan() {
+      if (!cfg) return;
+      const hide = [cfg.hideKids && "/kids", cfg.hidePodcasts && "/non-music"].filter(Boolean);
+      document.querySelectorAll(".ymm-nav-hidden").forEach((el) => {
+        const a = el.querySelector("a[href]");
+        if (!a || !hide.some((href) => a.getAttribute("href").startsWith(href))) el.classList.remove("ymm-nav-hidden");
+      });
+      for (const href of hide) {
+        document.querySelectorAll(`a[href^="${href}"]`).forEach((a) => {
+          const li = a.closest("li");
+          if (li && !li.classList.contains("ymm-nav-hidden") && li.querySelectorAll("a[href]").length === 1) li.classList.add("ymm-nav-hidden");
+        });
+      }
+    }
+  };
+
+  // логотип
+  const logo = {
+    scan() {
+      if (!cfg) return;
+      const link = $('[class*="NavbarDesktop_logoLink"]') || $('a[aria-label="Главная"]');
+      if (!link) return;
+      let el = link.querySelector(".ymm-logo");
+      if (cfg.logoMode === "original") {
+        if (el) el.remove();
+        link.classList.remove("ymm-logo-on");
+        return;
+      }
+      const src = cfg.logoMode === "custom" && state.logoUrl ? state.logoUrl : LOGO;
+      const key = `${src}|${cfg.logoText}`;
+      if (!el) {
+        el = h("span", { class: "ymm-logo" });
+        link.append(el);
+      }
+      if (el.dataset.key !== key) {
+        el.dataset.key = key;
+        el.replaceChildren(h("img", { src, alt: "" }), cfg.logoText ? h("span", {}, cfg.logoText) : null);
+      }
+      link.classList.add("ymm-logo-on");
+    }
+  };
+
+  // статистика
+  const stats = {
+    key: "", acc: 0, newPlay: false, meta: null, last: performance.now(),
+    tick() {
+      const now = performance.now();
+      const dt = Math.min(5, (now - this.last) / 1000);
+      this.last = now;
+      if (!audio.playing) return;
+      track.read();
+      if (!track.title) return;
+      const key = `${track.title}|${track.artist}`;
+      if (key !== this.key) {
+        this.flush();
+        this.key = key;
+        this.newPlay = true;
+      }
+      this.meta = { title: track.title, artist: track.artist, cover: track.cover };
+      this.acc += dt;
+      if (this.acc >= 30) this.flush();
+    },
+    flush() {
+      if (this.acc >= 1 && this.meta) api.statsAdd({ ...this.meta, seconds: Math.round(this.acc), newPlay: this.newPlay }).catch(() => {});
+      if (this.acc >= 1) this.newPlay = false;
+      this.acc = 0;
+    }
+  };
+  const fmtDur = (sec) => {
+    const m = Math.round(sec / 60);
+    if (m < 60) return `${m} мин`;
+    const hh = Math.floor(m / 60);
+    return `${hh} ч ${m % 60} мин`;
+  };
+  const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  // таймер сна
+  const sleep = {
+    end: 0, trackEnd: false, trackKey: "", timer: 0, fading: false,
+    get on() {
+      return Boolean(this.end || this.trackEnd);
+    },
+    start(min) {
+      this.cancel(true);
+      if (min === "track") {
+        track.read();
+        this.trackEnd = true;
+        this.trackKey = `${track.title}|${track.artist}`;
+        toast("Пауза после этого трека");
+      } else {
+        this.end = Date.now() + min * 60000;
+        this.min = min;
+        toast(`Таймер сна: ${min} мин`);
+      }
+      this.timer = setInterval(() => this.check(), 1000);
+      ui.sync();
+    },
+    check() {
+      if (this.trackEnd) {
+        track.read();
+        if (`${track.title}|${track.artist}` !== this.trackKey) this.fire();
+        return;
+      }
+      const left = this.end - Date.now();
+      if (left <= 20000 && !this.fading) {
+        this.fading = true;
+        if (window.__ymmFx) window.__ymmFx.fade(0, Math.max(1, left / 1000));
+      }
+      if (left <= 0) this.fire();
+      const lab = ui.shadow && ui.shadow.querySelector("[data-st=sleep]");
+      if (lab) lab.textContent = this.label();
+    },
+    fire() {
+      const pause = mini.btn(/^Пауза$/, true);
+      if (pause) pause.click();
+      this.cancel(false);
+      setTimeout(() => window.__ymmFx && window.__ymmFx.fade(1, 0.4), 800);
+      toast("Спокойной ночи 🌙");
+    },
+    cancel(silent) {
+      clearInterval(this.timer);
+      if (this.fading && window.__ymmFx) window.__ymmFx.fade(1, 0.4);
+      this.end = 0;
+      this.trackEnd = false;
+      this.fading = false;
+      if (!silent) ui.sync();
+    },
+    label() {
+      if (this.trackEnd) return "до конца трека";
+      if (!this.end) return "выключен";
+      const s = Math.max(0, Math.round((this.end - Date.now()) / 1000));
+      return `осталось ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+    }
+  };
 
   // volume
   const volume = {
@@ -934,9 +1251,12 @@ ${P}root"]{outline-offset:-1px;}`);
     player: '<rect x="3" y="14" width="18" height="6" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 4.5v6l5-3z" fill="currentColor"/>',
     fx: '<path d="M3 12h3l2-6 4 12 3-9 2 3h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
     presets: '<path d="M5 4h14v16l-7-4-7 4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+    look: '<path d="M5 19 10.5 5h3L19 19M7.6 14h8.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+    sound: '<path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+    stats: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
     more: '<circle cx="5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="currentColor"/>'
   };
-  const TABS = [["bg", "Фон"], ["color", "Цвет"], ["player", "Плеер"], ["fx", "Эффекты"], ["presets", "Пресеты"], ["more", "Ещё"]];
+  const TABS = [["sound", "Звук"], ["look", "Вид"], ["bg", "Фон"], ["color", "Цвет"], ["player", "Плеер"], ["fx", "Эффекты"], ["stats", "Статистика"], ["presets", "Пресеты"], ["more", "Ещё"]];
   const SWATCHES = ["#ff5c4d", "#ff2d95", "#b44dff", "#5c7cff", "#2dd4ff", "#2dffa8", "#ffd23f", "#ff8a3d", "#e8e8e8"];
   const PANEL_CSS = `
 :host{all:initial;font-family:"YS Text","Inter",system-ui,sans-serif;color:#f2f2f4;--a:var(--ymm-accent-ui,#ff5c4d);--on-a:var(--ymm-on-accent-ui,#000);}
@@ -948,18 +1268,18 @@ ${P}root"]{outline-offset:-1px;}`);
 .handle:hover,.handle.active{width:38px;opacity:1;}
 .handle:hover svg,.handle.active svg{opacity:1;}
 .handle.hidden{display:none;}
-.panel{position:fixed;left:48px;top:50%;z-index:2147483647;width:368px;max-height:min(86vh,720px);display:flex;flex-direction:column;
+.panel{position:fixed;left:48px;top:50%;z-index:2147483647;width:400px;max-height:min(88vh,760px);display:flex;flex-direction:column;
   transform:translateY(-50%) translateX(-12px) scale(.97);opacity:0;pointer-events:none;transition:transform .26s cubic-bezier(.2,.8,.2,1),opacity .2s;
   background:linear-gradient(160deg,rgba(30,30,36,.86),rgba(14,14,18,.9));backdrop-filter:blur(28px) saturate(1.5);-webkit-backdrop-filter:blur(28px) saturate(1.5);
   border:1px solid rgba(255,255,255,.09);border-radius:22px;box-shadow:0 24px 60px rgba(0,0,0,.6),0 0 0 1px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.06);overflow:hidden;}
 .panel.open{transform:translateY(-50%);opacity:1;pointer-events:auto;}
 .head{display:flex;align-items:center;gap:10px;padding:16px 16px 10px;}
-.logo{width:32px;height:32px;border-radius:9px;background:url("__YMMOD_LOGO__") center/cover;box-shadow:0 4px 14px rgba(255,45,122,.35);}
+.logo{width:32px;height:32px;border-radius:9px;background:url("${LOGO}") center/cover;box-shadow:0 4px 14px rgba(255,45,122,.35);}
 .title{font-size:15px;font-weight:700;letter-spacing:.2px;}
 .sub{font-size:11px;opacity:.5;margin-top:1px;}
 .x{margin-left:auto;width:28px;height:28px;border-radius:9px;border:0;background:rgba(255,255,255,.06);color:#fff;cursor:pointer;font-size:15px;}
 .x:hover{background:rgba(255,255,255,.14);}
-.tabs{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;padding:0 12px 10px;}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:0 12px 10px;}
 .tab{display:flex;flex-direction:column;align-items:center;gap:3px;padding:7px 0 6px;border:0;border-radius:12px;background:transparent;color:rgba(255,255,255,.55);cursor:pointer;font-size:10px;font-family:inherit;transition:background .15s,color .15s;}
 .tab svg{width:18px;height:18px;}
 .tab:hover{background:rgba(255,255,255,.06);color:#fff;}
@@ -1042,6 +1362,45 @@ kbd{font:600 10px ui-monospace,monospace;background:rgba(255,255,255,.08);border
   background:rgba(18,18,22,.92);backdrop-filter:blur(14px);border:1px solid color-mix(in srgb,var(--a) 40%,transparent);box-shadow:0 10px 30px rgba(0,0,0,.5);transition:opacity .2s,transform .2s;pointer-events:none;}
 .toast.show{opacity:1;transform:translate(-50%,0);}
 a{color:var(--a);}
+.fsearch{display:flex;gap:8px;margin-bottom:8px;}
+.chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}
+.chip{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.7);border-radius:99px;padding:4px 10px;font-size:11px;font-family:inherit;cursor:pointer;}
+.chip.on{background:var(--a);color:var(--on-a);border-color:transparent;font-weight:600;}
+.flist{height:300px;overflow-y:auto;border-radius:14px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.06);padding:4px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) transparent;}
+.frow{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:10px;cursor:pointer;font-size:17px;line-height:1.2;}
+.frow:hover{background:rgba(255,255,255,.06);}
+.frow.on{background:color-mix(in srgb,var(--a) 20%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--a) 50%,transparent);}
+.frow .fn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.frow .ft{font:500 9px "YS Text",system-ui,sans-serif;opacity:.4;text-transform:uppercase;letter-spacing:.6px;flex-shrink:0;}
+.frow .fdel{border:0;background:transparent;color:rgba(255,255,255,.4);cursor:pointer;font-size:12px;}
+.frow .fdel:hover{color:#e5484d;}
+.fprev{padding:14px 12px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);margin-bottom:10px;}
+.fprev .big{font-size:24px;font-weight:700;line-height:1.15;}
+.fprev .small{font-size:13px;opacity:.7;margin-top:6px;}
+.empty{padding:20px;text-align:center;font-size:12px;opacity:.5;}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.kpi{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:10px 12px;}
+.kpi b{display:block;font-size:17px;font-variant-numeric:tabular-nums;}
+.kpi span{font-size:10px;opacity:.5;text-transform:uppercase;letter-spacing:.6px;}
+.days{display:flex;align-items:flex-end;gap:4px;height:90px;padding:10px 4px 0;}
+.days div{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end;}
+.days i{display:block;width:100%;border-radius:5px 5px 2px 2px;background:linear-gradient(180deg,var(--a),color-mix(in oklab,var(--a) 40%,transparent));min-height:2px;}
+.days div.today i{box-shadow:0 0 10px color-mix(in srgb,var(--a) 60%,transparent);}
+.days small{font-size:9px;opacity:.45;}
+.top{display:flex;flex-direction:column;gap:6px;padding:8px 0;}
+.top .it{display:grid;grid-template-columns:22px 34px 1fr auto;align-items:center;gap:10px;font-size:12px;}
+.top .it.noimg{grid-template-columns:22px 1fr auto;}
+.top .n{opacity:.4;text-align:right;font-variant-numeric:tabular-nums;}
+.top img{width:34px;height:34px;border-radius:8px;object-fit:cover;background:#222;}
+.top .t{min-width:0;}
+.top .t b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.top .t span{display:block;opacity:.5;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.top .bar{height:3px;border-radius:2px;background:var(--a);margin-top:4px;opacity:.7;}
+.top .v{opacity:.55;font-size:11px;font-variant-numeric:tabular-nums;}
+.timer{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:8px 0;}
+.timer .btn.on{background:var(--a);color:var(--on-a);}
+.logoprev{display:flex;align-items:center;gap:10px;padding:10px 0;}
+.logoprev img{width:40px;height:40px;border-radius:11px;object-fit:cover;}
 `;
   const ui = {
     host: null, shadow: null, panel: null, body: null, handle: null, open: false, tab: "bg",
@@ -1090,6 +1449,8 @@ a{color:var(--a);}
       if (!this.open || !this.shadow) return;
       const a = this.shadow.querySelector("[data-st=audio]");
       if (a) this.setStatus(a, audio.attached > 0 ? ["ok", "Звук захвачен"] : audio.needed() ? ["warn", "Ждём воспроизведения…"] : ["", "Выключено"]);
+      const sn = this.shadow.querySelector("[data-st=fx]");
+      if (sn) this.setStatus(sn, sound.status());
       const d = this.shadow.querySelector("[data-st=discord]");
       if (d) this.setStatus(d, this.discordStatus());
     },
@@ -1133,6 +1494,182 @@ a{color:var(--a);}
       return h("div", { class: "sec" }, h("div", { class: "sec-t" }, title), ...kids);
     },
     // tabs
+    tab_sound() {
+      const studio = cfg.sound === "studio";
+      const timerBtn = (min, label) => h("button", { class: `btn${sleep.end && sleep.min === min ? " on" : ""}`, onclick: () => sleep.start(min) }, label);
+      return [
+        this.sec("Качество звука", this.seg("sound", [["off", "Как в Яндексе"], ["studio", "Студийное ✦"]], (v) => (v === "studio" ? quality.pick() : setOpt({ sound: "off" }))),
+          h("div", { class: "hint", style: "margin:8px 2px 0" }, studio
+            ? "Lossless + обработка: тёплый бас, чистая середина, воздух и детали на верхах, широкая сцена и мягкий лимитер без клиппинга."
+            : "Пункт «Студийное ✦» есть и в «Настройках звука» самого Яндекса — над «Превосходным»."),
+          this.card(h("div", { class: "row" }, h("div", { class: "lbl" }, "Состояние"), h("span", { class: "status", "data-st": "fx" })))),
+        studio ? this.sec("Студийная обработка", this.card(
+          this.range("studioAmount", "Сила обработки", 0, 100, "%"),
+          this.range("studioWidth", "Ширина сцены", 0, 100, "%"),
+          this.range("studioAmbience", "Атмосфера зала", 0, 100, "%"))) : null,
+        this.sec("Громкость", this.card(this.toggleRow("leveler", "Ровная громкость", "Тихие и громкие треки звучат одинаково, без скачков"))),
+        this.sec("Режим прослушивания", this.seg("playMode", [["normal", "Обычный"], ["slowed", "Slowed"], ["nightcore", "Nightcore"], ["8d", "8D"]]),
+          h("div", { class: "hint", style: "margin:8px 2px 0" }, { normal: "Трек звучит как есть.", slowed: "Медленнее и ниже + реверберация — slowed + reverb.", nightcore: "Быстрее и выше.", "8d": "Звук плавно ходит вокруг головы. Лучше в наушниках." }[cfg.playMode])),
+        this.sec("Таймер сна",
+          h("div", { class: "timer" }, timerBtn(15, "15 мин"), timerBtn(30, "30 мин"), timerBtn(45, "45 мин"), timerBtn(60, "1 час"), timerBtn(90, "1,5 часа"),
+            h("button", { class: `btn${sleep.trackEnd ? " on" : ""}`, onclick: () => sleep.start("track") }, "Конец трека")),
+          this.card(h("div", { class: "row" }, h("div", { class: "lbl" }, "Таймер"), h("span", { class: "val", "data-st": "sleep" }, sleep.label())),
+            sleep.on ? h("div", { style: "padding:0 0 10px" }, h("button", { class: "btn", style: "width:100%", onclick: () => sleep.cancel(false) }, "Отменить")) : null),
+          h("div", { class: "hint", style: "margin:8px 2px 0" }, "За 20 секунд до конца музыка плавно затихает.")),
+        h("div", { class: "hint" }, "Эквалайзер Яндекса из «Настроек звука» продолжает работать вместе со студийной обработкой.")
+      ];
+    },
+    tab_look() {
+      const cur = cfg.fontFamily;
+      const list = h("div", { class: "flist" });
+      const preview = h("div", { class: "fprev" }, h("div", { class: "big" }, "Моя волна"), h("div", { class: "small" }, "Съешь же ещё этих мягких французских булок · 0123456789"));
+      preview.style.fontFamily = cur ? `"${cur}",system-ui` : `"YS Text",system-ui`;
+      let cat = this.fontCat || "all";
+      const rows = [];
+      const mark = () => rows.forEach((r) => r.el.classList.toggle("on", r.family === cfg.fontFamily && r.source === cfg.fontSource));
+      const pick = (r) => {
+        setOpt({ fontFamily: r.family, fontSource: r.source, fontFile: r.file || null }, { silent: true });
+        preview.style.fontFamily = `"${r.family}",system-ui`;
+        if (r.source === "google") font.preview(r.family);
+        mark();
+      };
+      const addRow = (r) => {
+        r.el = h("div", { class: "frow", title: r.family, onclick: () => pick(r) },
+          h("span", { class: "fn", style: `font-family:"${r.family}",system-ui` }, r.family),
+          h("span", { class: "ft" }, r.tag),
+          r.source === "file" ? h("button", { class: "fdel", title: "Удалить шрифт", onclick: async (e) => {
+            e.stopPropagation();
+            replaceState(await api.removeFont(r.file));
+          } }, "✕") : null);
+        rows.push(r);
+        list.append(r.el);
+      };
+      const TAG = { sans: "гротеск", serif: "засечки", display: "акцент", hand: "рукопись", mono: "моно" };
+      (state.fonts || []).forEach((f) => {
+        if (!document.querySelector(`style[data-ymm-font="${f.file}"]`)) document.head.append(h("style", { "data-ymm-font": f.file }, `@font-face{font-family:"${f.name}";src:url("${f.url}");}`));
+        addRow({ family: f.name, source: "file", file: f.file, cat: "file", tag: "мой" });
+      });
+      GOOGLE_FONTS.forEach(([name, c]) => addRow({ family: name, source: "google", cat: c, tag: TAG[c] }));
+      const io = new IntersectionObserver((entries) => entries.forEach((en) => {
+        if (!en.isIntersecting) return;
+        const r = rows.find((x) => x.el === en.target);
+        if (r && r.source === "google") font.preview(r.family);
+        io.unobserve(en.target);
+      }), { root: list, rootMargin: "120px" });
+      rows.forEach((r) => r.source === "google" && io.observe(r.el));
+      const search = h("input", { class: "inp", placeholder: "Поиск шрифта…", value: this.fontQuery || "" });
+      const filter = () => {
+        const q = search.value.trim().toLowerCase();
+        this.fontQuery = search.value;
+        let shown = 0;
+        rows.forEach((r) => {
+          const ok = (cat === "all" || r.cat === cat) && (!q || r.family.toLowerCase().includes(q));
+          r.el.style.display = ok ? "" : "none";
+          if (ok) shown++;
+        });
+        empty.style.display = shown ? "none" : "";
+      };
+      const empty = h("div", { class: "empty", style: "display:none" }, "Ничего не нашлось");
+      list.append(empty);
+      search.addEventListener("input", filter);
+      const chips = h("div", { class: "chips" }, FONT_CATS.map(([id, label]) => h("button", { class: `chip${cat === id ? " on" : ""}`, onclick: (e) => {
+        cat = this.fontCat = id;
+        chips.querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c === e.currentTarget));
+        filter();
+      } }, label)));
+      font.systemList().then((names) => {
+        names.forEach((n) => addRow({ family: n, source: "system", cat: "system", tag: "windows" }));
+        list.append(empty);
+        mark();
+        filter();
+      });
+      mark();
+      filter();
+      const logoText = h("input", { class: "inp", placeholder: "Подпись рядом с логотипом", value: cfg.logoText, maxlength: 24 });
+      logoText.addEventListener("input", () => setOpt({ logoText: logoText.value }, { silent: true }));
+      return [
+        this.sec("Шрифт приложения", preview,
+          h("div", { class: "fsearch" }, search, h("button", { class: "btn", title: "Сбросить на шрифт Яндекса", onclick: () => setOpt({ fontFamily: "", fontSource: "", fontFile: null }) }, "Сброс")),
+          chips, list,
+          h("div", { class: "btns", style: "margin-top:10px" }, h("button", { class: "btn", onclick: async () => replaceState(await api.addFont()) }, "＋ Свой шрифт (.ttf / .otf / .woff2)")),
+          this.card(this.toggleRow("fontHeadings", "Заголовки тоже", "Иначе крупные заголовки останутся фирменным шрифтом Яндекса"))),
+        this.sec("Логотип", this.seg("logoMode", [["original", "Яндекса"], ["mod", "YMusicMod"], ["custom", "Своя картинка"]]),
+          this.card(
+            h("div", { class: "logoprev" }, cfg.logoMode === "original" ? h("span", { class: "hint" }, "Стандартный логотип Яндекс Музыки") : h("img", { src: cfg.logoMode === "custom" && state.logoUrl ? state.logoUrl : LOGO }),
+              cfg.logoMode !== "original" ? h("b", {}, cfg.logoText) : null),
+            cfg.logoMode !== "original" ? h("div", { style: "padding:0 0 10px" }, logoText) : null,
+            cfg.logoMode === "custom" ? h("div", { class: "btns", style: "padding-bottom:10px" }, h("button", { class: "btn", onclick: async () => replaceState(await api.setLogo()) }, state.logoUrl ? "Сменить картинку" : "Выбрать картинку")) : null,
+            this.toggleRow("logoWindowIcon", "Иконка окна тоже", "Иконка в панели задач Windows"))),
+        this.sec("Разделы меню", this.card(
+          this.toggleRow("hideKids", "Скрыть «Детям»"),
+          this.toggleRow("hidePodcasts", "Скрыть «Книги и подкасты»"),
+          h("div", { class: "hint", style: "padding-bottom:10px" }, "Пункты просто убираются из меню — само приложение не меняется, всё можно вернуть.")))
+      ];
+    },
+    tab_stats() {
+      const box = h("div", {}, h("div", { class: "empty" }, "Загружаю…"));
+      api.statsGet().then((st) => box.replaceChildren(...this.statsView(st))).catch(() => box.replaceChildren(h("div", { class: "empty" }, "Не удалось загрузить")));
+      return [box];
+    },
+    statsView(st) {
+      const days = st.days || {};
+      const now = new Date();
+      const today = days[dayKey(now)] || 0;
+      let week = 0;
+      const last14 = [];
+      for (let i = 13; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const v = days[dayKey(d)] || 0;
+        if (i < 7) week += v;
+        last14.push({ d, v });
+      }
+      const total = Object.values(days).reduce((a, b) => a + b, 0);
+      let streak = 0;
+      for (let i = 0; i < 3650; i++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        if ((days[dayKey(d)] || 0) >= 60) streak++;
+        else if (i > 0) break;
+      }
+      if (!total) return [h("div", { class: "empty" }, "Пока пусто. Включи музыку — статистика начнёт копиться сама. Всё хранится только на этом компьютере.")];
+      const max = Math.max(...last14.map((x) => x.v), 1);
+      const hours = st.hours || {};
+      const peak = Object.entries(hours).sort((a, b) => b[1] - a[1])[0];
+      const artists = Object.entries(st.artists || {}).sort((a, b) => b[1].sec - a[1].sec).slice(0, 10);
+      const tracks = Object.values(st.tracks || {}).sort((a, b) => b.sec - a.sec).slice(0, 10);
+      const aMax = artists.length ? artists[0][1].sec : 1;
+      const wd = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+      let confirmReset = false;
+      return [
+        this.sec("Время в музыке", h("div", { class: "kpis" },
+          h("div", { class: "kpi" }, h("b", {}, fmtDur(today)), h("span", {}, "сегодня")),
+          h("div", { class: "kpi" }, h("b", {}, fmtDur(week)), h("span", {}, "7 дней")),
+          h("div", { class: "kpi" }, h("b", {}, fmtDur(total)), h("span", {}, "всего"))),
+          h("div", { class: "card", style: "margin-top:8px" }, h("div", { class: "days" }, last14.map((x, i) => h("div", { class: i === 13 ? "today" : "", title: `${x.d.toLocaleDateString("ru-RU")}: ${fmtDur(x.v)}` },
+            h("i", { style: `height:${Math.max(2, (x.v / max) * 70)}px` }), h("small", {}, wd[x.d.getDay()])))),
+            h("div", { class: "row" }, h("div", { class: "lbl" }, "Серия дней подряд"), h("span", { class: "val" }, `${streak} 🔥`)),
+            peak ? h("div", { class: "row" }, h("div", { class: "lbl" }, "Любимое время"), h("span", { class: "val" }, `${peak[0]}:00–${(Number(peak[0]) + 1) % 24}:00`)) : null)),
+        this.sec("Топ артистов", this.card(h("div", { class: "top" }, artists.map(([name, a], i) => h("div", { class: "it noimg" },
+          h("span", { class: "n" }, i + 1),
+          h("div", { class: "t" }, h("b", {}, name), h("div", { class: "bar", style: `width:${(a.sec / aMax) * 100}%` })),
+          h("span", { class: "v" }, fmtDur(a.sec))))))),
+        this.sec("Топ треков", this.card(h("div", { class: "top" }, tracks.map((t, i) => h("div", { class: "it" },
+          h("span", { class: "n" }, i + 1),
+          t.cover ? h("img", { src: t.cover, loading: "lazy" }) : h("img", {}),
+          h("div", { class: "t" }, h("b", {}, t.title), h("span", {}, t.artist)),
+          h("span", { class: "v" }, `${t.plays || 1}× · ${fmtDur(t.sec)}`)))))),
+        h("div", { class: "btns" }, h("button", { class: "btn", onclick: async (e) => {
+          if (!confirmReset) {
+            confirmReset = true;
+            e.currentTarget.textContent = "Точно сбросить? Нажми ещё раз";
+            return;
+          }
+          await api.statsReset();
+          this.render();
+        } }, "Сбросить статистику"))
+      ];
+    },
     tab_bg() {
       const files = state.files;
       const dn = cfg.bgMode === "daynight";
@@ -1220,7 +1757,10 @@ a{color:var(--a);}
           this.toggleRow("bgPulse", "Фон тоже качается"))),
         this.sec("Визуализатор", this.seg("visualizer", [["off", "Выкл"], ["bars", "Полосы"], ["wave", "Волна"], ["mirror", "Зеркало"]]),
           cfg.visualizer !== "off" ? this.card(this.range("visualizerOpacity", "Яркость", 10, 100, "%")) : null),
-        this.sec("Производительность", this.card(this.toggleRow("reducedMotion", "Меньше анимаций", "Выключает пульс, визуализатор, вращение, свечение и останавливает видео-фон")))
+        this.sec("Производительность", this.card(
+          this.toggleRow("prefetchCovers", "Предзагрузка обложек", "Качает обложки списка в фоне заранее — при прокрутке они уже готовы"),
+          this.toggleRow("scrollBoost", "Плавная прокрутка", "Пока листаешь, эффекты не перерисовываются — весь кадр уходит списку"),
+          this.toggleRow("reducedMotion", "Меньше анимаций", "Выключает пульс, визуализатор, вращение, свечение и останавливает видео-фон")))
       ];
     },
     tab_presets() {
@@ -1293,6 +1833,8 @@ a{color:var(--a);}
     }
     if (ui.host && !ui.host.isConnected) document.body.append(ui.host);
     volume.scan();
+    nav.scan();
+    logo.scan();
     if (cfg && cfg.cleanVibe) {
       document.querySelectorAll('[class*="WheelItem_root"]').forEach((el) => el.classList.toggle("ymm-artist", /В стиле/i.test(el.textContent || "")));
     }
@@ -1321,6 +1863,34 @@ a{color:var(--a);}
     applyAll();
     refreshTargets();
     new MutationObserver(debounce(refreshTargets, 250)).observe(document.body, { childList: true, subtree: true });
+    // Окно «Настройки звука» открывается только кликом/клавишей, поэтому ищем его после ввода,
+    // а не на каждое изменение DOM (на «Моей волне» их десятки в секунду).
+    const qCheck = () => [0, 60, 200, 500, 1000].forEach((ms) => setTimeout(() => quality.scan(), ms));
+    document.addEventListener("click", qCheck, true);
+    document.addEventListener("keyup", (e) => (e.key === "Enter" || e.key === " ") && qCheck(), true);
+    // Логотип и меню перерисовываются редко - дешёвой проверки раз в 2 с хватает.
+    setInterval(() => {
+      logo.scan();
+      nav.scan();
+    }, 2000);
+    setInterval(() => stats.tick(), 1000);
+    document.addEventListener("scroll", () => scrolling.on(), { capture: true, passive: true });
+    document.addEventListener("wheel", () => scrolling.on(), { capture: true, passive: true });
+    // Какие размеры обложек реально показывает приложение - такие и предзагружаем.
+    const learnSizes = () => {
+      const cv = window.__ymmCovers;
+      if (!cv) return;
+      const count = {};
+      for (const img of document.images) {
+        const m = /get-music-content\/.+\/(\d+x\d+)$/.exec(img.src);
+        if (m) count[m[1]] = (count[m[1]] || 0) + 1;
+      }
+      const top = Object.entries(count).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k]) => k);
+      if (top.length) cv.sizes = top;
+    };
+    setTimeout(learnSizes, 3000);
+    setInterval(learnSizes, 15000);
+    window.addEventListener("beforeunload", () => stats.flush());
     window.addEventListener("resize", debounce(layoutCanvas, 100));
     document.addEventListener("visibilitychange", () => {
       bg.syncVideo();
@@ -1332,7 +1902,7 @@ a{color:var(--a);}
     pollTrack();
     Object.defineProperty(window, "__ymmDebug", { value: { setOpt, get cfg() {
       return cfg;
-    }, audio, beat, accent, mini, presets, ui }, configurable: true });
+    }, audio, beat, accent, mini, presets, ui, sound, font, logo, stats, sleep, scrolling }, configurable: true });
     console.log(`[YMusicMod] v${state.modVersion} ready`);
   }
   if (document.body) boot();
