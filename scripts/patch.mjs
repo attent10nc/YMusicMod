@@ -26,12 +26,17 @@ const die = (m) => {
 };
 
 const rd = (f) => fs.readFileSync(path.join(MOD, f), "utf8");
+// Рендерер собирается из частей: //@include кода и __YMMOD_CSS:файл__ для стилей.
+const renderer = () => rd("renderer.js")
+  .replace(/^[ \t]*\/\/@include (\S+)[ \t]*$/gm, (_, f) => rd(f))
+  .replace(/"__YMMOD_CSS:([\w.-]+)__"/g, (_, f) => JSON.stringify(rd(f)))
+  .replace("__YMMOD_LOGO__", () => `data:image/svg+xml;base64,${fs.readFileSync(path.join(ROOT, "assets", "logo.svg")).toString("base64")}`);
 const buildPayload = () => ({
   scheme: rd("scheme.js"),
   main: rd("main.js")
     .replace("__YMMOD_VERSION__", VERSION)
     .replace("__YMMOD_LOGO_PNG__", () => `data:image/png;base64,${fs.readFileSync(path.join(ROOT, "assets", "logo-256.png")).toString("base64")}`)
-    .replace("__YMMOD_RENDERER__", () => JSON.stringify(rd("renderer.js").replace("__YMMOD_LOGO__", `data:image/svg+xml;base64,${fs.readFileSync(path.join(ROOT, "assets", "logo.svg")).toString("base64")}`)))
+    .replace("__YMMOD_RENDERER__", () => JSON.stringify(renderer()))
     .replace("__YMMOD_MINI_HTML__", () => JSON.stringify(rd("mini.html"))),
   preload: rd("preload.js").replace("__YMMOD_EARLY__", () => rd("early.js"))
 });
@@ -101,7 +106,9 @@ fs.appendFileSync(path.join(src, preloadName), `\n${payload.preload}\n`);
 // Данные теперь отдаёт кэш мода, так что ждать не нужно; строки готовим заранее.
 const TUNE = [
   [/debounceDurationInMs:300(?![0-9])/g, "debounceDurationInMs:40"],
-  [/overscan:([A-Za-z_$][\w$]*)=700(?![0-9])/g, "overscan:$1=1600"]
+  [/overscan:([A-Za-z_$][\w$]*)=700(?![0-9])/g, "overscan:$1=1600"],
+  // Кнопку «Загрузить трек» Яндекс прячет серверным флагом деградации - возвращаем её.
+  [/![A-Za-z_$][\w$]*\.checkExperiment\([A-Za-z_$][\w$.]*\.WebNextUgcUploadDegradation,"on"\)/g, "!0"]
 ];
 let tuned = 0;
 const walk = (dir) => {
@@ -111,7 +118,7 @@ const walk = (dir) => {
     if (f.isDirectory()) walk(p);
     else if (f.name.endsWith(".js")) {
       const before = fs.readFileSync(p, "utf8");
-      if (!before.includes("debounceDurationInMs") && !before.includes("overscan:")) continue;
+      if (!before.includes("debounceDurationInMs") && !before.includes("overscan:") && !before.includes("WebNextUgcUploadDegradation")) continue;
       let after = before;
       for (const [re, to] of TUNE) {
         tuned += (after.match(re) || []).length;
@@ -124,6 +131,12 @@ const walk = (dir) => {
 walk(path.join(src, "app", "_next", "static", "chunks"));
 log(`списки: ${tuned} правок`);
 for (const f of [entry, preloadName]) execFileSync(process.execPath, ["--check", path.join(src, f)], { stdio: "inherit" });
+// Рендерер внутри main.js - строка, --check его не видит. Проверяем отдельно, иначе опечатка всплывёт только в приложении.
+{
+  const check = path.join(work, "renderer-check.js");
+  fs.writeFileSync(check, renderer());
+  execFileSync(process.execPath, ["--check", check], { stdio: "inherit" });
+}
 log(`entry: ${entry}, preload: ${preloadName}`);
 
 const out = path.join(work, "app.asar");

@@ -410,14 +410,17 @@ namespace YMusicMod
             int tuned = 0;
             var tune = new[] {
                 new KeyValuePair<Regex, string>(new Regex("debounceDurationInMs:300(?![0-9])"), "debounceDurationInMs:40"),
-                new KeyValuePair<Regex, string>(new Regex("overscan:([A-Za-z_$][\\w$]*)=700(?![0-9])"), "overscan:$1=1600")
+                new KeyValuePair<Regex, string>(new Regex("overscan:([A-Za-z_$][\\w$]*)=700(?![0-9])"), "overscan:$1=1600"),
+                // Кнопку «Загрузить трек» Яндекс прячет серверным флагом деградации - возвращаем её.
+                new KeyValuePair<Regex, string>(new Regex("![A-Za-z_$][\\w$]*\\.checkExperiment\\([A-Za-z_$][\\w$.]*\\.WebNextUgcUploadDegradation,\"on\"\\)"), "!0")
             };
             try
             {
                 foreach (var kv in Asar.ReadAll(baseAsar, "app/_next/static/chunks/", ".js"))
                 {
                     string js = utf8.GetString(kv.Value);
-                    if (js.IndexOf("debounceDurationInMs", StringComparison.Ordinal) < 0 && js.IndexOf("overscan:", StringComparison.Ordinal) < 0) continue;
+                    if (js.IndexOf("debounceDurationInMs", StringComparison.Ordinal) < 0 && js.IndexOf("overscan:", StringComparison.Ordinal) < 0
+                        && js.IndexOf("WebNextUgcUploadDegradation", StringComparison.Ordinal) < 0) continue;
                     string after = js;
                     foreach (var t in tune) { tuned += t.Key.Matches(after).Count; after = t.Key.Replace(after, t.Value); }
                     if (after != js) repl[kv.Key] = utf8.GetBytes(after);

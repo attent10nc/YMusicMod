@@ -1,0 +1,177 @@
+/* Анимации интерфейса Яндекс Музыки: только на видеокарте, чтобы не задевать прокрутку списков.
+   Везде свойства scale и translate, а не transform: у элементов Яндекса часто свой transform
+   (центрирование окна, поворот обложки), и он должен продолжать работать.
+   Осторожно: scale умножает и сдвиг внутри чужого transform. На элементах со смещением использовать только translate. */
+:root {
+  --ymm-ease: cubic-bezier(.16, 1, .3, 1);
+  --ymm-spring: linear(0, .009, .035 2.1%, .141 4.4%, .723 12.9%, .938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, .991, .977 51%, .974 53.8%, .975 57.1%, .997 69.8%, 1.003 76.9%, 1);
+}
+
+/* Контекстные меню */
+html.ymm-motion [role="menu"] > * {
+  animation: ymmMenuIn .24s var(--ymm-ease) both;
+  transform-origin: 50% 0;
+}
+html.ymm-motion [role="menu"] [role^="menuitem"] {
+  transition: background-color .14s ease, color .14s ease, translate .16s var(--ymm-ease), scale .16s var(--ymm-ease) !important;
+}
+html.ymm-motion [role="menu"] [role^="menuitem"]:hover { translate: 3px 0; }
+html.ymm-motion [role="menu"] [role^="menuitem"]:active { translate: 3px 0; scale: .985; }
+@keyframes ymmMenuIn {
+  from { opacity: 0; translate: 0 -6px; scale: .96; }
+}
+
+/* Окна и модалки */
+html.ymm-motion [class*="QualitySettingsModal_root"],
+html.ymm-motion [class*="Modal_root"],
+html.ymm-motion [class*="Drawer_root"] {
+  animation: ymmModalIn .3s var(--ymm-ease) backwards;
+}
+/* Только translate: окна центрируются через transform, и scale сдвинул бы их вместе с масштабом. */
+@keyframes ymmModalIn {
+  from { translate: 0 12px; }
+}
+html.ymm-motion [role="tooltip"] { animation: ymmTipIn .16s var(--ymm-ease) both; }
+@keyframes ymmTipIn {
+  from { opacity: 0; translate: 0 3px; scale: .97; }
+}
+
+/* Смена страницы */
+html.ymm-motion main.ymm-page-in { animation: ymmPageIn .36s var(--ymm-ease) both; }
+@keyframes ymmPageIn {
+  from { opacity: 0; translate: 0 9px; }
+}
+
+/* Навигация слева */
+html.ymm-motion nav a[data-test-id^="NAVBAR_NAVIGATION_ITEM"] svg,
+html.ymm-motion nav a[data-test-id^="NAVBAR_NAVIGATION_ITEM"] > div {
+  transition: scale .24s var(--ymm-ease), translate .24s var(--ymm-ease), opacity .16s ease;
+}
+html.ymm-motion nav a[data-test-id^="NAVBAR_NAVIGATION_ITEM"]:hover svg { scale: 1.14; }
+html.ymm-motion nav a[data-test-id^="NAVBAR_NAVIGATION_ITEM"]:hover > div:last-child { translate: 3px 0; }
+html.ymm-motion nav a[data-test-id^="NAVBAR_NAVIGATION_ITEM"]:active svg { scale: .92; }
+nav li[aria-current="page"] a[data-test-id^="NAVBAR_NAVIGATION_ITEM"] svg,
+nav li[aria-current="true"] a[data-test-id^="NAVBAR_NAVIGATION_ITEM"] svg {
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--ymm-accent-ui) 70%, transparent));
+}
+
+/* Строки треков */
+html.ymm-motion [class*="CommonTrack_root"] { transition: background-color .16s ease, box-shadow .2s ease; }
+html.ymm-motion [class*="CommonTrack_root"] [class*="PlayButtonWithCover_cover__"] { transition: scale .26s var(--ymm-ease); }
+html.ymm-motion [class*="CommonTrack_root"]:hover [class*="PlayButtonWithCover_cover__"] { scale: 1.06; }
+.ymm-current-row {
+  /* background-image, а не background: родной цвет строки под мышью продолжает работать. */
+  background-image: linear-gradient(90deg, color-mix(in srgb, var(--ymm-accent-ui) 20%, transparent), transparent 70%) !important;
+  box-shadow: inset 2px 0 0 var(--ymm-accent-ui);
+  border-radius: var(--ym-radius-size-m, 10px);
+}
+
+/* Карточки альбомов и артистов. Тень не добавляем: у артистов круглая картинка в квадратном блоке. */
+html.ymm-motion [class*="Card_cover__"] { transition: scale .32s var(--ymm-ease), translate .32s var(--ymm-ease); }
+html.ymm-motion [class*="Card_root"]:hover [class*="Card_cover__"] { translate: 0 -4px; scale: 1.022; }
+html.ymm-motion [class*="Card_root"]:active [class*="Card_cover__"] { scale: .985; }
+
+/* Кнопки плеера */
+html.ymm-motion [data-test-id="PLAYERBAR_DESKTOP"] button { transition: scale .2s var(--ymm-spring), transform .2s ease, background-color .15s ease, opacity .15s ease, color .15s ease !important; }
+html.ymm-motion [data-test-id="PLAYERBAR_DESKTOP"] button:hover { scale: 1.05; }
+html.ymm-motion [data-test-id="PLAYERBAR_DESKTOP"] button:active { scale: .88; transition-duration: .08s !important; }
+html.ymm-motion [data-test-id="PLAY_BUTTON"]:hover,
+html.ymm-motion [data-test-id="PAUSE_BUTTON"]:hover { filter: drop-shadow(0 4px 14px color-mix(in srgb, var(--ymm-accent-ui) 45%, transparent)); }
+
+/* Лайк: только по настоящему нажатию (класс ставит код). Селектор по aria-pressed срабатывал
+   на каждой лайкнутой строке, которую создаёт виртуальный список при прокрутке. */
+html.ymm-motion .ymm-like-pop svg { animation: ymmHeart .46s var(--ymm-spring) both; }
+html.ymm-motion .ymm-like-pop { position: relative; overflow: visible !important; }
+html.ymm-motion .ymm-like-pop::after {
+  content: ""; position: absolute; inset: 15%; border-radius: 50%; pointer-events: none;
+  box-shadow: 0 0 0 2px var(--ymm-accent-ui);
+  animation: ymmHeartRing .52s var(--ymm-ease) both;
+}
+@keyframes ymmHeart {
+  from { scale: .55; }
+}
+@keyframes ymmHeartRing {
+  from { opacity: .9; scale: .7; }
+  to { opacity: 0; scale: 1.75; }
+}
+
+/* Смена трека в плеере */
+html.ymm-motion .ymm-track-in [class*="PlayerBarDesktopWithBackgroundProgressBar_description"] { animation: ymmTrackText .46s var(--ymm-ease) both; }
+html.ymm-motion .ymm-track-in [class*="PlayerBarDesktopWithBackgroundProgressBar_coverContainer"] img { animation: ymmTrackCover .5s var(--ymm-ease) both; }
+@keyframes ymmTrackText {
+  from { opacity: 0; translate: 0 9px; }
+}
+@keyframes ymmTrackCover {
+  from { opacity: 0; scale: .82; }
+}
+
+/* Ссылки и мелочи */
+html.ymm-motion a[class*="Meta_albumLink"],
+html.ymm-motion a[class*="Meta_link"] { transition: color .14s ease, opacity .14s ease; }
+::selection { background: color-mix(in srgb, var(--ymm-accent-ui) 45%, transparent); }
+:focus-visible { outline-color: var(--ymm-accent-ui) !important; }
+
+/* Полоса прокрутки: размеры оставляем родные, на них рассчитаны отступы страниц. Меняем только цвет. */
+html.ymm-motion ::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--ymm-accent-ui) 80%, white); }
+
+/* Полоса перемотки появляется при наведении на плеер. Заливка это ::before дорожки: дорожка сама обрезает её
+   по скруглённому углу блока. Яндекс красит заливку в акцент, а тёмный акцент на тёмном блоке выглядит дырой,
+   поэтому берём читаемый вариант цвета. На сам ползунок (input) ничего не рисовать: он на 6 px шире блока. */
+[class*="PlayerBarDesktopWithBackgroundProgressBar_progressBar"]::before { background-color: var(--ymm-accent-ui) !important; }
+[data-test-id="TIMECODE_WRAPPER"] [class*="PlayerBarDesktopWithBackgroundProgressBar_progressBar"] { transform-origin: 50% 0; transition: scale .2s var(--ymm-ease); }
+html.ymm-motion [data-test-id="TIMECODE_WRAPPER"]:hover [class*="PlayerBarDesktopWithBackgroundProgressBar_progressBar"] { scale: 1 1.6; }
+/* Позиция ползунка у Яндекса в transform: translateX. Его нельзя масштабировать ни через transform (затрёт позицию),
+   ни через scale (умножит сдвиг и ползунок уедет от заливки). Меняем только цвет. */
+[data-test-id="TIMECODE_WRAPPER"] [class*="PlayerBarDesktopWithBackgroundProgressBar_thumb"] { background-color: var(--ymm-accent-ui); }
+
+/* Плеер на весь экран: фон из обложки, волна вокруг, обложка живёт в такт */
+/* Родной backdrop-filter под непрозрачным фоном ничего не показывает, только нагружает видеокарту. */
+.ymm-fsfx [class*="FullscreenPlayerDesktop_root"] { background: #08080b !important; overflow: hidden; backdrop-filter: none !important; }
+/* Окно плеера - отдельный контекст наложения, поэтому z-index: -1 кладёт слои под содержимое, не сдвигая его. */
+.ymm-fs-bg { position: absolute; inset: -12%; z-index: -1; pointer-events: none; background: center / cover no-repeat; filter: blur(70px) saturate(1.5) brightness(.42); transform: scale(calc(1.02 + var(--ymm-beat, 0) * .025)); transition: background-image .9s ease; animation: ymmFsDrift 42s ease-in-out infinite alternate; }
+.ymm-fs-shade { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse 80% 80% at 50% 45%, transparent 20%, rgba(4, 4, 6, .72) 100%); }
+@keyframes ymmFsDrift {
+  from { background-position: 42% 40%; }
+  to { background-position: 58% 60%; }
+}
+canvas.ymm-vis-fs { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+.ymm-fsfx [class*="FullscreenPlayerDesktopPoster_cover"] {
+  transform: perspective(900px) rotateX(var(--ymm-rx, 0deg)) rotateY(var(--ymm-ry, 0deg)) scale(calc(1 + var(--ymm-beat, 0) * .028));
+  transition: transform .12s ease-out;
+  box-shadow: 0 34px 90px rgba(0, 0, 0, .65), 0 0 calc(30px + var(--ymm-beat, 0) * 70px) color-mix(in srgb, var(--ymm-c1, #fff) 45%, transparent);
+  will-change: transform;
+}
+html.ymm-motion [class*="FullscreenPlayerDesktopContent_info"] { animation: ymmFsInfo .6s var(--ymm-ease) .05s both; }
+@keyframes ymmFsInfo {
+  from { opacity: 0; transform: translateY(16px); }
+}
+
+/* Текст песни и очередь на весь экран. Края Яндекс затеняет блоками цвета обложки: на его ровном фоне их не видно,
+   а на нашем размытом они выглядят прямоугольниками. Заменяем настоящим растворением по маске. */
+.ymm-fsfx [class*="SyncLyrics_content"]::before,
+.ymm-fsfx [class*="SyncLyrics_content"]::after,
+.ymm-fsfx [class*="FullscreenPlayerDesktop_root"] [class*="PlayQueue_root"]::before,
+.ymm-fsfx [class*="FullscreenPlayerDesktop_root"] [class*="PlayQueue_root"]::after { display: none !important; }
+.ymm-fsfx [class*="SyncLyrics_content"],
+.ymm-fsfx [class*="FullscreenPlayerDesktop_root"] [class*="PlayQueue_root"] {
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 96px, #000 calc(100% - 96px), transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 96px, #000 calc(100% - 96px), transparent 100%);
+}
+/* Цвет у всех строк белый, а приглушает их родная прозрачность: у Яндекса .1 и .3 рассчитаны на его фон, здесь их мало. */
+.ymm-fsfx [class*="SyncLyricsLine_root"] { color: #fff; text-shadow: 0 1px 14px rgba(0, 0, 0, .45); transition: text-shadow .35s ease; }
+html.ymm-fsfx [class*="SyncLyricsScroller_root"] [class*="SyncLyricsScroller_line_active"] ~ [class*="SyncLyricsScroller_line"] { opacity: .3; }
+html.ymm-fsfx [class*="SyncLyricsScroller_root"] [class*="SyncLyricsScroller_line_active"] + [class*="SyncLyricsScroller_line"] { opacity: .58; }
+.ymm-fsfx [class*="SyncLyricsScroller_line_active"] [class*="SyncLyricsLine_root"] {
+  text-shadow: 0 0 26px color-mix(in srgb, var(--ymm-c1, #fff) 55%, transparent), 0 1px 14px rgba(0, 0, 0, .5);
+}
+.ymm-fsfx [class*="SyncLyricsFooter_"] { color: rgba(255, 255, 255, .42) !important; }
+.ymm-fsfx [class*="FullscreenPlayerDesktopContent_info"] { text-shadow: 0 1px 12px rgba(0, 0, 0, .75); }
+/* Волна не заходит на колонку текста, в каком бы режиме ни была. */
+canvas.ymm-vis-lyr {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(var(--ymm-lx) - 44px), transparent var(--ymm-lx));
+  mask-image: linear-gradient(90deg, #000 calc(var(--ymm-lx) - 44px), transparent var(--ymm-lx));
+}
+
+/* Холст визуализатора */
+canvas.ymm-vis-bar { position: fixed; z-index: 3; pointer-events: none; }
+canvas.ymm-vis-full { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none; }

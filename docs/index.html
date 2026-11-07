@@ -1,174 +1,183 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>YMusicMod — кастомизация Яндекс Музыки для Windows</title>
-<meta name="description" content="Бесплатный мод для Яндекс Музыки на компьютере: свой фон и видео-обои, цвет из обложки, визуализатор, мини-плеер поверх игр и статус в Discord. Установка в один клик.">
-<meta name="keywords" content="яндекс музыка мод, кастомизация яндекс музыки, яндекс музыка фон, яндекс музыка тема, яндекс музыка discord, яндекс музыка мини плеер, yandex music mod, yandex music theme">
+<title>YMusicMod: кастомизация Яндекс Музыки для Windows</title>
+<meta name="description" content="Бесплатный мод для Яндекс Музыки на компьютере: живая волна под музыку, свой фон и шрифт, студийный звук, текст песни на весь экран, мини-плеер поверх игр и статус в Discord.">
+<meta name="keywords" content="яндекс музыка мод, кастомизация яндекс музыки, яндекс музыка фон, яндекс музыка тема, яндекс музыка визуализатор, яндекс музыка discord, яндекс музыка мини плеер, yandex music mod, yandex music theme">
 <link rel="canonical" href="https://attent10nc.github.io/YMusicMod/">
 <link rel="icon" href="img/logo.svg" type="image/svg+xml">
 <meta property="og:type" content="website">
-<meta property="og:title" content="YMusicMod — кастомизация Яндекс Музыки">
-<meta property="og:description" content="Свой фон, цвет из обложки, визуализатор, мини-плеер поверх игр и статус в Discord. Бесплатно, открытый код.">
+<meta property="og:title" content="YMusicMod: кастомизация Яндекс Музыки">
+<meta property="og:description" content="Живая волна под музыку, свой фон и шрифт, студийный звук, мини-плеер поверх игр и статус в Discord. Бесплатно, открытый код.">
 <meta property="og:image" content="https://attent10nc.github.io/YMusicMod/img/banner.png">
 <meta property="og:url" content="https://attent10nc.github.io/YMusicMod/">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#0b0b10">
+<meta name="theme-color" content="#000000">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"SoftwareApplication","name":"YMusicMod","operatingSystem":"Windows 10, Windows 11","applicationCategory":"MultimediaApplication","offers":{"@type":"Offer","price":"0","priceCurrency":"RUB"},"downloadUrl":"https://github.com/attent10nc/YMusicMod/releases/latest/download/YMusicMod-Setup.exe","description":"Мод для десктопной Яндекс Музыки: фоны, цвет из обложки, визуализатор, мини-плеер, статус в Discord."}
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"YMusicMod","operatingSystem":"Windows 10, Windows 11","applicationCategory":"MultimediaApplication","offers":{"@type":"Offer","price":"0","priceCurrency":"RUB"},"downloadUrl":"https://github.com/attent10nc/YMusicMod/releases/latest/download/YMusicMod-Setup.exe","description":"Мод для десктопной Яндекс Музыки: живая волна, фоны, студийный звук, мини-плеер, статус в Discord."}
 </script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geologica:wght@200..700&display=swap" rel="stylesheet">
 <style>
-  :root { --bg: #0b0b10; --card: #15151c; --line: rgba(255,255,255,.08); --text: #f2f2f6; --muted: #9c9cab; --a1: #ff6a3d; --a2: #ff2d7a; --a3: #8b3dff; }
+  :root { --bg: #000; --fg: #fff; --mid: #a3a3a3; --dim: #6b6b6b; --line: #262626; --page: min(1240px, calc(100vw - 48px)); }
   * { box-sizing: border-box; margin: 0; }
   html { scroll-behavior: smooth; }
-  body { background: var(--bg); color: var(--text); font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif; line-height: 1.5; overflow-x: hidden; }
+  body { background: var(--bg); color: var(--fg); font: 300 17px/1.6 "Geologica", "Segoe UI", system-ui, sans-serif; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
   a { color: inherit; }
-  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
-  .glow { position: absolute; border-radius: 50%; filter: blur(110px); pointer-events: none; z-index: 0; }
-  header { position: relative; padding: 28px 0 0; }
-  nav { display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 2; }
-  .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 20px; text-decoration: none; }
-  .brand img { width: 36px; height: 36px; }
-  nav .links { display: flex; gap: 26px; font-size: 15px; color: var(--muted); }
-  nav .links a { text-decoration: none; transition: color .15s; }
-  nav .links a:hover { color: var(--text); }
-  .hero { position: relative; display: grid; grid-template-columns: 1.05fr .95fr; gap: 40px; align-items: center; padding: 70px 0 90px; z-index: 1; }
-  h1 { font-size: clamp(42px, 6vw, 72px); line-height: 1.02; letter-spacing: -2px; font-weight: 800; }
-  .grad { background: linear-gradient(90deg, var(--a1), var(--a2) 55%, #a35bff); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .lead { margin-top: 22px; font-size: 20px; color: #c8c8d3; max-width: 520px; }
-  .cta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 34px; align-items: center; }
-  .btn { display: inline-flex; align-items: center; gap: 12px; padding: 16px 26px; border-radius: 16px; font-weight: 700; font-size: 17px; text-decoration: none; transition: transform .15s, filter .15s; }
-  .btn:hover { transform: translateY(-2px); }
-  .btn.pri { background: linear-gradient(90deg, var(--a1), var(--a2) 55%, var(--a3)); color: #fff; box-shadow: 0 14px 40px -12px rgba(255,45,122,.6); }
-  .btn.pri:hover { filter: brightness(1.08); }
-  .btn.sec { background: var(--card); border: 1px solid var(--line); color: var(--text); }
-  .btn svg { width: 20px; height: 20px; }
-  .note { margin-top: 14px; font-size: 14px; color: var(--muted); }
-  .shots { position: relative; height: 520px; }
-  .shots .panel { position: absolute; right: 0; top: 0; width: 330px; transform: rotate(3deg); border-radius: 22px; filter: drop-shadow(0 30px 60px rgba(0,0,0,.6)); }
-  .shots .mini { position: absolute; left: -10px; bottom: 30px; width: 400px; transform: rotate(-4deg); border-radius: 24px; filter: drop-shadow(0 26px 50px rgba(0,0,0,.6)); }
-  section { position: relative; padding: 80px 0; z-index: 1; }
-  h2 { font-size: clamp(30px, 4vw, 42px); letter-spacing: -1px; font-weight: 800; }
-  .sub { color: var(--muted); margin-top: 10px; font-size: 18px; max-width: 640px; }
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 40px; }
-  .card { position: relative; overflow: hidden; padding: 28px; border-radius: 22px; background: linear-gradient(160deg, #1a1a22, #121218); border: 1px solid var(--line); }
-  .card::after { content: ""; position: absolute; width: 200px; height: 200px; right: -80px; top: -90px; border-radius: 50%; background: var(--c); filter: blur(60px); opacity: .28; }
-  .ico { width: 50px; height: 50px; border-radius: 14px; display: grid; place-items: center; background: linear-gradient(135deg, var(--c), var(--c2)); }
-  .ico svg { width: 25px; height: 25px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .card h3 { margin-top: 18px; font-size: 21px; }
-  .card p { margin-top: 8px; color: var(--muted); font-size: 16px; }
-  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 40px; }
-  .step { padding: 26px; border-radius: 20px; background: var(--card); border: 1px solid var(--line); }
-  .step b { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--a1), var(--a2)); font-size: 16px; }
-  .step h3 { margin-top: 14px; font-size: 19px; }
-  .step p { margin-top: 6px; color: var(--muted); }
-  .installer { margin-top: 40px; display: flex; justify-content: center; }
-  .installer img { width: min(560px, 100%); border-radius: 18px; box-shadow: 0 30px 70px -20px rgba(0,0,0,.7); }
-  details { border-bottom: 1px solid var(--line); padding: 20px 0; }
-  details:first-of-type { margin-top: 30px; border-top: 1px solid var(--line); }
-  summary { cursor: pointer; font-size: 18px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; }
-  summary::after { content: "+"; color: var(--a2); font-size: 22px; line-height: 1; }
-  details[open] summary::after { content: "–"; }
-  details p { margin-top: 10px; color: var(--muted); max-width: 760px; }
-  kbd { font: 600 13px ui-monospace, Consolas, monospace; background: #1d1d26; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 2px 7px; }
-  .final { text-align: center; padding: 90px 24px; border-radius: 30px; margin: 40px 0 70px; background: radial-gradient(ellipse at top, rgba(255,45,122,.22), transparent 70%), var(--card); border: 1px solid var(--line); }
-  .final .cta { justify-content: center; }
-  footer { padding: 30px 0 50px; color: var(--muted); font-size: 14px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-  @media (max-width: 880px) {
-    .hero { grid-template-columns: 1fr; padding-top: 40px; }
-    .shots { height: 440px; max-width: 460px; margin: 0 auto; width: 100%; }
-    .shots .panel { width: 260px; }
-    .shots .mini { width: 330px; }
-    .grid, .steps { grid-template-columns: 1fr; }
-    nav .links { display: none; }
+  :focus-visible { outline: 2px solid #fff; outline-offset: 3px; border-radius: 4px; }
+  img { display: block; max-width: 100%; height: auto; }
+  .wrap { width: var(--page); margin-inline: auto; }
+
+  .hero { position: relative; min-height: 100svh; display: flex; flex-direction: column; overflow: hidden; isolation: isolate; }
+  #wave { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; }
+  .bar { display: flex; align-items: center; justify-content: space-between; padding-block: 26px; font-weight: 400; font-size: 15px; }
+  .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; font-weight: 500; }
+  .brand img { width: 26px; height: 26px; }
+  .bar nav { display: flex; gap: 26px; }
+  .bar nav a { color: var(--mid); text-decoration: none; transition: color .15s; }
+  .bar nav a:hover { color: var(--fg); }
+  .lead { flex: 1; display: flex; flex-direction: column; justify-content: flex-start; padding-top: clamp(28px, 8vh, 96px); }
+  h1 { font-weight: 200; font-size: clamp(44px, 8.2vw, 124px); line-height: .98; letter-spacing: -.045em; max-width: 11.5em; }
+  .sub { margin-top: 26px; max-width: 34em; color: var(--mid); font-size: clamp(16px, 1.45vw, 19px); }
+  .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 24px; margin-top: 36px; }
+  .dl { display: inline-flex; align-items: center; gap: 11px; padding: 16px 28px; border-radius: 999px; background: #fff; color: #000; font-weight: 500; font-size: 17px; text-decoration: none; transition: transform .35s cubic-bezier(.2, 1.6, .4, 1), background .15s; }
+  .dl:hover { transform: scale(1.04); }
+  .dl:active { transform: scale(.97); }
+  .dl svg { width: 20px; height: 20px; }
+  .note { color: var(--mid); font-size: 14px; text-shadow: 0 0 8px #000, 0 0 16px #000; }
+  .modes { display: flex; flex-wrap: wrap; gap: 6px 24px; padding-block: 28px; font-size: 15px; }
+  .modes button { background: none; border: 0; padding: 4px 0; font: inherit; color: var(--mid); cursor: pointer; text-shadow: 0 0 6px #000, 0 0 14px #000, 0 0 22px #000; border-bottom: 1px solid transparent; transition: color .15s, border-color .15s; }
+  .modes button:hover { color: var(--fg); }
+  .modes button[aria-pressed="true"] { color: var(--fg); border-color: #fff; }
+  html:not(.has-wave) .modes { display: none; }
+
+  section { padding-block: clamp(72px, 12vw, 150px); }
+  h2 { font-weight: 200; font-size: clamp(34px, 5vw, 68px); line-height: 1.05; letter-spacing: -.035em; max-width: 14em; }
+  .tour { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: clamp(32px, 7vw, 110px); align-items: start; margin-top: clamp(40px, 6vw, 80px); }
+  .shot { position: sticky; top: 28px; }
+  .shot img { border-radius: 18px; }
+  .list h3 { font-weight: 400; font-size: clamp(21px, 2vw, 26px); letter-spacing: -.015em; line-height: 1.25; }
+  .list p { color: var(--mid); margin-top: 8px; max-width: 34em; }
+  .list > div { padding-block: 26px; border-top: 1px solid var(--line); }
+  .list > div:first-child { border-top: 0; padding-top: 0; }
+  .mini { margin-top: clamp(40px, 7vw, 90px); display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: clamp(32px, 7vw, 110px); align-items: center; }
+  .mini img { border-radius: 28px; }
+
+  .install ol { list-style: none; padding: 0; margin-top: clamp(32px, 5vw, 60px); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(24px, 4vw, 56px); counter-reset: s; }
+  .install li { counter-increment: s; }
+  .install li::before { content: counter(s); display: block; font-size: clamp(44px, 5vw, 72px); font-weight: 200; line-height: 1; margin-bottom: 14px; }
+  .install li p { color: var(--mid); max-width: 24em; }
+  .install .inst { margin-top: clamp(40px, 6vw, 72px); width: min(620px, 100%); border-radius: 16px; }
+
+  .faq details { border-top: 1px solid var(--line); padding-block: 20px; max-width: 760px; }
+  .faq details:last-child { border-bottom: 1px solid var(--line); }
+  .faq summary { cursor: pointer; font-weight: 400; font-size: 18px; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: "+"; color: var(--dim); font-size: 22px; line-height: 1.1; transition: transform .25s ease; }
+  .faq details[open] summary::after { transform: rotate(45deg); }
+  .faq p { color: var(--mid); margin-top: 12px; max-width: 42em; }
+  .faq { margin-top: clamp(32px, 5vw, 56px); }
+
+  .end { text-align: left; border-top: 1px solid var(--line); }
+  .end .cta { margin-top: 32px; }
+  footer { padding-block: 34px; color: var(--dim); font-size: 14px; display: flex; flex-wrap: wrap; gap: 8px 28px; justify-content: space-between; }
+  footer a { color: var(--mid); }
+
+  @media (max-width: 860px) {
+    .tour, .mini { grid-template-columns: minmax(0, 1fr); }
+    .shot { position: static; max-width: 480px; }
+    .install ol { grid-template-columns: minmax(0, 1fr); }
+    .bar nav a:not(:last-child) { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { transition: none !important; }
   }
 </style>
 </head>
 <body>
-<div class="glow" style="width:560px;height:560px;left:-180px;top:-200px;background:#ff4d3d;opacity:.35"></div>
-<div class="glow" style="width:640px;height:640px;right:-200px;top:-120px;background:#ff2d7a;opacity:.32"></div>
-<div class="glow" style="width:560px;height:560px;right:10%;top:520px;background:#7a3dff;opacity:.28"></div>
-
-<header class="wrap">
-  <nav>
-    <a class="brand" href="#"><img src="img/logo-256.png" alt="">YMusicMod</a>
-    <div class="links">
-      <a href="#features">Возможности</a>
+<header class="hero">
+  <canvas id="wave" aria-hidden="true"></canvas>
+  <div class="wrap bar">
+    <a class="brand" href="#"><img src="img/logo.svg" alt="" width="26" height="26">YMusicMod</a>
+    <nav aria-label="Разделы">
+      <a href="#tour">Возможности</a>
       <a href="#install">Установка</a>
-      <a href="#faq">Вопросы</a>
       <a href="https://github.com/attent10nc/YMusicMod">GitHub</a>
+    </nav>
+  </div>
+  <div class="wrap lead">
+    <h1>Яндекс Музыка, настроенная под вас</h1>
+    <p class="sub">Живая волна под музыку, свой фон и шрифт, студийный звук, текст песни на весь экран и мини-плеер поверх игр. Бесплатно и с открытым кодом.</p>
+    <div class="cta">
+      <a class="dl" href="https://github.com/attent10nc/YMusicMod/releases/latest/download/YMusicMod-Setup.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v13M6 11l6 6 6-6M4 21h16"/></svg>Скачать для Windows</a>
+      <span class="note">Для Windows 10 и 11, установка в один клик</span>
     </div>
-  </nav>
-  <div class="hero">
-    <div>
-      <h1>Яндекс Музыка,<br>но <span class="grad">красивее</span></h1>
-      <p class="lead">Свой фон и видео-обои, цвет из обложки, визуализатор, мини-плеер поверх игр и статус в Discord. Бесплатно и с открытым кодом.</p>
-      <div class="cta">
-        <a class="btn pri" href="https://github.com/attent10nc/YMusicMod/releases/latest/download/YMusicMod-Setup.exe">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
-          Скачать для Windows
-        </a>
-        <a class="btn sec" href="https://github.com/attent10nc/YMusicMod">Исходный код</a>
-      </div>
-      <p class="note">Windows 10 и 11 · 260 КБ · установка в один клик</p>
-    </div>
-    <div class="shots">
-      <img class="panel" src="img/panel.png" alt="Панель настроек YMusicMod">
-      <img class="mini" src="img/mini-player.png" alt="Мини-плеер YMusicMod">
-    </div>
+  </div>
+  <div class="wrap modes" role="group" aria-label="Режим волны">
+    <button type="button" data-mode="wave" aria-pressed="true">Волна</button>
+    <button type="button" data-mode="rings" aria-pressed="false">Кольца</button>
+    <button type="button" data-mode="aurora" aria-pressed="false">Сияние</button>
+    <button type="button" data-mode="stars" aria-pressed="false">Звёзды</button>
+    <button type="button" data-mode="bars" aria-pressed="false">Полосы</button>
   </div>
 </header>
 
-<section id="features" class="wrap">
-  <h2>Что умеет</h2>
-  <p class="sub">Всё настраивается в одной панели прямо в приложении. Открывается по <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Y</kbd>.</p>
-  <div class="grid">
-    <div class="card" style="--c:#ff6a3d;--c2:#ff2d7a"><div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 16 5-5 4 4 3-3 6 6"/><circle cx="16" cy="9" r="1.5"/></svg></div><h3>Свой фон</h3><p>Фото, GIF или видео. Слайдшоу, смена днём и ночью, размытие и затемнение.</p></div>
-    <div class="card" style="--c:#ff2d7a;--c2:#a35bff"><div class="ico"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1 0 1.6-.8 1.6-1.6 0-.9-.7-1.3-.7-2.2 0-.9.7-1.6 1.6-1.6H17a4 4 0 0 0 4-4C21 6.9 17 3 12 3Z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.2" r="1"/></svg></div><h3>Цвет из обложки</h3><p>Кнопки, прогресс и свечение плавно перекрашиваются под каждый трек.</p></div>
-    <div class="card" style="--c:#a35bff;--c2:#5c7cff"><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 14v4M8 9v9M12 5v13M16 10v8M20 13v5"/></svg></div><h3>Визуализатор</h3><p>Спектр над плеером, обложка и свечение пульсируют под бас.</p></div>
-    <div class="card" style="--c:#2dd4ff;--c2:#5c7cff"><div class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="13" width="18" height="7" rx="3"/><path d="M10 4.5v6l5-3z"/></svg></div><h3>Мини-плеер</h3><p>Поверх всех окон, с перемоткой. Не мешает играм и прячется сам.</p></div>
-    <div class="card" style="--c:#5c7cff;--c2:#a35bff"><div class="ico"><svg viewBox="0 0 24 24"><path d="M8 12h.01M16 12h.01M7 17s1.5 2 5 2 5-2 5-2M6.5 6.5S9 5 12 5s5.5 1.5 5.5 1.5L20 16l-3 2M4 16l2.5-9.5M4 16l3 2"/></svg></div><h3>Discord</h3><p>Статус «Слушает» с обложкой, временем трека и кнопкой на песню.</p></div>
-    <div class="card" style="--c:#2dffa8;--c2:#2dd4ff"><div class="ico"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></div><h3>Переживает обновления</h3><p>Яндекс Музыка обновилась, а мод через пару секунд снова на месте.</p></div>
-    <div class="card" style="--c:#ffd23f;--c2:#ff6a3d"><div class="ico"><svg viewBox="0 0 24 24"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></svg></div><h3>Студийный звук</h3><p>Пункт «Студийное» в настройках звука: lossless плюс тёплый бас, воздух, широкая сцена и мягкий лимитер. Ещё slowed, nightcore и 8D.</p></div>
-    <div class="card" style="--c:#2dd4ff;--c2:#2dffa8"><div class="ico"><svg viewBox="0 0 24 24"><path d="M5 19 10.5 5h3L19 19M7.6 14h8.8"/></svg></div><h3>Шрифты и логотип</h3><p>Больше сотни шрифтов с кириллицей, системные или свой файл. Свой логотип вместо яндексовского.</p></div>
-    <div class="card" style="--c:#2dffa8;--c2:#5c7cff"><div class="ico"><svg viewBox="0 0 24 24"><path d="M6 4h12M6 9h12M6 14h12M6 19h8"/></svg></div><h3>Плавные списки</h3><p>Треки и обложки подгружаются заранее в фоне, поэтому при прокрутке нет серых заглушек.</p></div>
-  </div>
-</section>
-
-<section id="install" class="wrap">
-  <h2>Установка за минуту</h2>
-  <div class="steps">
-    <div class="step"><b>1</b><h3>Скачайте</h3><p>Файл <code>YMusicMod-Setup.exe</code> весит меньше мегабайта и ничего лишнего не ставит.</p></div>
-    <div class="step"><b>2</b><h3>Запустите</h3><p>Установщик сам найдёт Яндекс Музыку и встроит мод. Если программа в другой папке, он спросит, где она.</p></div>
-    <div class="step"><b>3</b><h3>Настройте</h3><p>Нажмите <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Y</kbd> в Яндекс Музыке и выберите фон, цвет и эффекты.</p></div>
-  </div>
-  <div class="installer"><img src="img/installer.png" alt="Установщик YMusicMod" loading="lazy"></div>
-</section>
-
-<section id="faq" class="wrap">
-  <h2>Вопросы</h2>
-  <details><summary>Это бесплатно?</summary><p>Да, полностью. Код открыт на GitHub под лицензией MIT.</p></details>
-  <details><summary>Это безопасно для аккаунта?</summary><p>Мод меняет только файлы приложения на вашем компьютере и перед этим делает резервную копию. Логин, пароль и подписку он не трогает и никуда их не отправляет. Данные треков он запрашивает у того же сервера Яндекса, что и само приложение, а шрифты скачивает с Google Fonts, только если вы их выбрали. Статистика прослушиваний хранится только у вас.</p></details>
-  <details><summary>Нужна ли подписка Плюс?</summary><p>Мод не влияет на подписку: он меняет только внешний вид и добавляет удобства. Музыка играет так же, как в обычном приложении.</p></details>
-  <details><summary>Что будет после обновления Яндекс Музыки?</summary><p>Если оставить опцию «Возвращать мод после обновлений», мод вернётся сам через несколько секунд. Иначе просто запустите установщик ещё раз.</p></details>
-  <details><summary>Windows предупреждает о неизвестном издателе</summary><p>Файл не подписан платным сертификатом. Нажмите «Подробнее» → «Выполнить в любом случае». Исходный код открыт, его можно проверить или собрать самому.</p></details>
-  <details><summary>Как удалить?</summary><p>Запустите установщик и нажмите «Удалить». Приложение вернётся к исходному виду.</p></details>
-</section>
-
-<div class="wrap">
-  <div class="final">
-    <h2>Попробуйте</h2>
-    <p class="sub" style="margin:10px auto 0">Удалить можно в один клик, если не понравится.</p>
-    <div class="cta">
-      <a class="btn pri" href="https://github.com/attent10nc/YMusicMod/releases/latest/download/YMusicMod-Setup.exe">Скачать YMusicMod</a>
-      <a class="btn sec" href="https://github.com/attent10nc/YMusicMod">★ Звезда на GitHub</a>
+<main>
+  <section id="tour" class="wrap">
+    <h2>Всё настраивается в одной панели</h2>
+    <div class="tour">
+      <div class="shot"><img src="img/panel.png" alt="Панель настроек YMusicMod, раздел с режимами волны" width="640" height="776" loading="lazy"></div>
+      <div class="list">
+        <div><h3>Волна</h3><p>Семь режимов прямо на видеокарте. Волна реагирует на реальный звук, держит ритм и работает над плеером или на весь фон за интерфейсом.</p></div>
+        <div><h3>Плеер на весь экран</h3><p>Фон из обложки, волна вокруг неё, обложка пульсирует в такт и наклоняется за мышью. Текст песни читается чисто, волна на него не заходит.</p></div>
+        <div><h3>Звук</h3><p>Студийная обработка с профилями, бас, баланс, своя скорость, slowed, nightcore и 8D. Громкость можно выравнивать по данным самого трека. Таймер сна плавно затихает.</p></div>
+        <div><h3>Вид</h3><p>Фото, GIF и видео на фон или размытая обложка текущего трека. Любой шрифт, свой логотип и анимации во всём приложении.</p></div>
+        <div><h3>Discord</h3><p>Обложка в высоком качестве, фото артиста, год и жанр, рабочие ссылки на трек и артиста. Строки статуса настраиваются, результат виден сразу.</p></div>
+        <div><h3>Статистика</h3><p>Время за день, месяц и всего, любимые часы, топ артистов и треков. Хранится только на вашем компьютере.</p></div>
+        <div><h3>Настройки не теряются</h3><p>Копии создаются сами каждый день и перед обновлением. Изменение можно отменить по Ctrl+Z, а любое действие найти по Ctrl+K.</p></div>
+      </div>
     </div>
-  </div>
-  <footer>
-    <span>YMusicMod · MIT</span>
-    <span>Проект не связан с ООО «Яндекс». «Яндекс Музыка» — товарный знак правообладателя.</span>
-  </footer>
-</div>
+    <div class="mini">
+      <img src="img/mini-player.png" alt="Мини-плеер с обложкой, кнопками и волной" width="960" height="312" loading="lazy">
+      <div class="list"><div><h3>Мини-плеер поверх игр</h3><p>Не забирает фокус и сам прячется, когда запущено что-то полноэкранное. Управлять музыкой можно из любого окна: Ctrl+Alt+Space, стрелки и L.</p></div></div>
+    </div>
+  </section>
+
+  <section id="install" class="wrap install">
+    <h2>Установка занимает минуту</h2>
+    <ol>
+      <li><p>Поставьте <a href="https://music.yandex.ru/download/">Яндекс Музыку для Windows</a>, если её ещё нет.</p></li>
+      <li><p>Скачайте и запустите <a href="https://github.com/attent10nc/YMusicMod/releases/latest/download/YMusicMod-Setup.exe">YMusicMod-Setup.exe</a>.</p></li>
+      <li><p>Приложение перезапустится с модом. Панель открывается по Ctrl+Shift+Y.</p></li>
+    </ol>
+    <img class="inst" src="img/installer.png" alt="Окно установщика" width="680" height="470" loading="lazy">
+    <div class="faq">
+      <details><summary>Это безопасно для аккаунта?</summary><p>Мод меняет только файлы приложения на вашем компьютере и перед этим делает резервную копию. Логин, пароль и подписку он не трогает и никуда не отправляет. Весь код открыт.</p></details>
+      <details><summary>Windows предупреждает о неизвестном издателе</summary><p>Файл не подписан платным сертификатом. Нажмите «Подробнее», затем «Выполнить в любом случае».</p></details>
+      <details><summary>Что будет после обновления Яндекс Музыки?</summary><p>Маленький фоновый процесс вернёт мод через несколько секунд. Если отключили эту опцию, просто запустите установщик ещё раз.</p></details>
+      <details><summary>Как удалить?</summary><p>Запустите установщик и нажмите «Удалить». Приложение вернётся к исходному виду, настройки останутся в папке %APPDATA%\YandexMusic\YMusicMod.</p></details>
+    </div>
+  </section>
+
+  <section class="end">
+    <div class="wrap">
+      <h2>Попробуйте на своей музыке</h2>
+      <div class="cta">
+        <a class="dl" href="https://github.com/attent10nc/YMusicMod/releases/latest/download/YMusicMod-Setup.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v13M6 11l6 6 6-6M4 21h16"/></svg>Скачать для Windows</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <span>Открытый код, лицензия MIT. Проект не связан с ООО «Яндекс».</span>
+  <span><a href="https://github.com/attent10nc/YMusicMod">GitHub</a> &nbsp; <a href="https://github.com/attent10nc/YMusicMod/releases">Все версии</a></span>
+</footer>
+<script src="shaders.js"></script>
+<script src="wave.js"></script>
 </body>
 </html>

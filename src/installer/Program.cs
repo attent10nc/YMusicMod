@@ -209,17 +209,12 @@ namespace YMusicMod
 
     static class Theme
     {
-        public static readonly Color Bg = Color.FromArgb(14, 14, 18);
-        public static readonly Color Card = Color.FromArgb(24, 24, 31);
-        public static readonly Color CardHover = Color.FromArgb(32, 32, 41);
-        public static readonly Color Line = Color.FromArgb(40, 40, 50);
-        public static readonly Color Text = Color.FromArgb(242, 242, 246);
-        public static readonly Color Muted = Color.FromArgb(140, 140, 155);
-        public static readonly Color A1 = Color.FromArgb(255, 106, 61);
-        public static readonly Color A2 = Color.FromArgb(255, 45, 122);
-        public static readonly Color A3 = Color.FromArgb(139, 61, 255);
-        public static readonly Color Ok = Color.FromArgb(61, 220, 132);
-        public static readonly Color Warn = Color.FromArgb(255, 178, 36);
+        public static readonly Color Bg = Color.Black;
+        public static readonly Color Card = Color.FromArgb(17, 17, 17);
+        public static readonly Color CardHover = Color.FromArgb(34, 34, 34);
+        public static readonly Color Line = Color.FromArgb(44, 44, 44);
+        public static readonly Color Text = Color.White;
+        public static readonly Color Muted = Color.FromArgb(146, 146, 146);
 
         public static Font F(float size, FontStyle style = FontStyle.Regular, bool semibold = false)
         {
@@ -239,15 +234,7 @@ namespace YMusicMod
             return p;
         }
 
-        public static Brush Accent(RectangleF r)
-        {
-            var b = new LinearGradientBrush(r, A1, A3, LinearGradientMode.Horizontal);
-            var blend = new ColorBlend(3);
-            blend.Colors = new[] { A1, A2, A3 };
-            blend.Positions = new[] { 0f, 0.55f, 1f };
-            b.InterpolationColors = blend;
-            return b;
-        }
+        public static Brush Accent(RectangleF r) { return new SolidBrush(Color.White); }
 
         public static void Hq(Graphics g)
         {
@@ -275,7 +262,7 @@ namespace YMusicMod
         int step = -1;
         Mode mode;
         string title = "", subtitle = "", detail = "";
-        float shimmer;
+        float shimmer, phase, energy = 0.3f, shownFrac, checkT;
         readonly System.Windows.Forms.Timer anim;
 
         readonly Btn primary, secondary, changeDir, minBtn, closeBtn;
@@ -316,12 +303,31 @@ namespace YMusicMod
 
             Controls.AddRange(new Control[] { minBtn, closeBtn, changeDir, guard, primary, secondary, settingsLink, repoLink });
 
+            // Волна в шапке живёт всё время, пока окно открыто. Во время установки она оживает.
             anim = new System.Windows.Forms.Timer { Interval = 16 };
-            anim.Tick += (s, e) => { shimmer = (shimmer + 0.012f) % 1.6f; Invalidate(new Rectangle(0, 300, Width, 70)); };
+            anim.Tick += (s, e) => Animate();
+            Opacity = 0;
 
             MouseDown += (s, e) => { if (e.Button == MouseButtons.Left && e.Y < 140) { ReleaseCapture(); SendMessage(Handle, 0xA1, 2, 0); } };
-            Shown += (s, e) => AutoStart();
+            Shown += (s, e) => { anim.Start(); AutoStart(); };
+            FormClosed += (s, e) => anim.Stop();
             Refresh2();
+        }
+
+        void Animate()
+        {
+            if (WindowState == FormWindowState.Minimized) return;
+            if (Opacity < 1) Opacity = Math.Min(1, Opacity + 0.07);
+            bool working = mode == Mode.Working;
+            shimmer = (shimmer + 0.012f) % 1.6f;
+            phase += working ? 0.05f : 0.018f;
+            energy += ((working ? 1f : mode == Mode.Done ? 0.5f : 0.3f) - energy) * 0.04f;
+            float frac = mode == Mode.Done ? 1f : step < 0 ? 0f : Math.Min(1f, (step + (working ? 0.5f : 0f)) / steps.Length);
+            shownFrac += (frac - shownFrac) * 0.09f;
+            checkT = mode == Mode.Done ? Math.Min(1f, checkT + 0.05f) : 0f;
+            Invalidate(new Rectangle(WaveLeft, 0, Width - WaveLeft, 140), true);
+            Invalidate(new Rectangle(30, 170, 90, 70));
+            Invalidate(new Rectangle(30, 325, Width - 60, 16));
         }
 
         protected override CreateParams CreateParams
@@ -427,7 +433,6 @@ namespace YMusicMod
             title = install ? "Устанавливаю…" : "Удаляю…";
             subtitle = "Пара секунд";
             primary.Enabled = secondary.Enabled = changeDir.Enabled = guard.Enabled = false;
-            anim.Start();
             Invalidate();
             bool g = guard.Checked;
             var t = new Thread(() =>
@@ -462,7 +467,6 @@ namespace YMusicMod
 
         void Finish(bool install, string error)
         {
-            anim.Stop();
             primary.Enabled = changeDir.Enabled = guard.Enabled = true;
             if (error != null)
             {
@@ -483,46 +487,54 @@ namespace YMusicMod
             var g = e.Graphics;
             Theme.Hq(g);
 
-            // свечение в шапке
-            using (var path = new GraphicsPath())
-            {
-                path.AddEllipse(-160, -220, 620, 420);
-                using (var pb = new PathGradientBrush(path))
-                {
-                    pb.CenterColor = Color.FromArgb(70, Theme.A2);
-                    pb.SurroundColors = new[] { Color.FromArgb(0, Theme.A2) };
-                    g.FillPath(pb, path);
-                }
-            }
-            using (var path = new GraphicsPath())
-            {
-                path.AddEllipse(380, -260, 520, 400);
-                using (var pb = new PathGradientBrush(path))
-                {
-                    pb.CenterColor = Color.FromArgb(45, Theme.A3);
-                    pb.SurroundColors = new[] { Color.FromArgb(0, Theme.A3) };
-                    g.FillPath(pb, path);
-                }
-            }
+            DrawWave(g);
 
             g.DrawImage(logo, new Rectangle(36, 40, 76, 76));
             using (var f = Theme.F(24f, FontStyle.Regular, true)) TextRenderer.DrawText(g, "YMusicMod", f, new Point(126, 42), Theme.Text);
             using (var f = Theme.F(10.5f)) TextRenderer.DrawText(g, "Кастомизация Яндекс Музыки", f, new Point(130, 86), Theme.Muted);
             DrawChip(g, "v" + Patcher.ModVersion, new Point(316, 54));
+            using (var pen = new Pen(Theme.Line)) g.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
 
             // карточка состояния
             var card = new RectangleF(32, 150, 616, 104);
-            using (var p = Theme.Round(card, 18)) using (var b = new SolidBrush(Theme.Card)) g.FillPath(b, p);
+            using (var p = Theme.Round(card, 18))
+            {
+                using (var b = new SolidBrush(Theme.Card)) g.FillPath(b, p);
+                using (var pen = new Pen(Theme.Line)) g.DrawPath(pen, p);
+            }
             DrawStatusIcon(g, new RectangleF(52, 176, 52, 52));
             using (var f = Theme.F(13f, FontStyle.Regular, true)) TextRenderer.DrawText(g, title, f, new Rectangle(120, 172, 400, 28), Theme.Text, TextFormatFlags.EndEllipsis);
             using (var f = Theme.F(9.5f)) TextRenderer.DrawText(g, subtitle, f, new Rectangle(121, 201, mode == Mode.Missing ? 500 : 410, 20), Theme.Muted, TextFormatFlags.EndEllipsis);
             if (detail.Length > 0)
-                using (var f = Theme.F(8.5f)) TextRenderer.DrawText(g, detail, f, new Rectangle(121, 222, 410, 18), Color.FromArgb(95, 95, 110), TextFormatFlags.PathEllipsis);
+                using (var f = Theme.F(8.5f)) TextRenderer.DrawText(g, detail, f, new Rectangle(121, 222, 410, 18), Color.FromArgb(100, 100, 100), TextFormatFlags.PathEllipsis);
 
             DrawSteps(g, new RectangleF(32, 274, 616, 40));
             DrawProgress(g, new RectangleF(36, 330, 608, 6));
 
             using (var f = Theme.F(9.5f)) TextRenderer.DrawText(g, "Возвращать мод после обновлений", f, new Point(88, 375), Theme.Text);
+        }
+
+        const int WaveLeft = 400;
+
+        // Те же ленты, что и в визуализаторе мода: сумма синусов с затуханием к краям.
+        void DrawWave(Graphics g)
+        {
+            float w = Width - WaveLeft;
+            var pts = new PointF[56];
+            int[] alpha = { 34, 66, 200 };
+            float[] width = { 1f, 1.2f, 1.7f };
+            for (int l = 0; l < 3; l++)
+            {
+                for (int i = 0; i < pts.Length; i++)
+                {
+                    float t = i / (float)(pts.Length - 1);
+                    double env = Math.Pow(Math.Sin(Math.PI * t), 1.6);
+                    double a = t * 9 + phase * (1.1 + l * 0.35) + l * 1.7;
+                    double y = Math.Sin(a) * 0.55 + Math.Sin(a * 2.3 - phase * 0.8) * 0.3 + Math.Sin(a * 0.45 + phase * 0.5) * 0.3;
+                    pts[i] = new PointF(WaveLeft + t * w, 78 + (float)(y * env * (10 + energy * 34) * (1 - l * 0.12)));
+                }
+                using (var pen = new Pen(Color.FromArgb(alpha[l], Color.White), width[l]) { LineJoin = LineJoin.Round }) g.DrawCurve(pen, pts, 0.5f);
+            }
         }
 
         void DrawChip(Graphics g, string text, Point at)
@@ -531,24 +543,41 @@ namespace YMusicMod
             {
                 var size = TextRenderer.MeasureText(text, f);
                 var r = new RectangleF(at.X, at.Y, size.Width + 12, 22);
-                using (var p = Theme.Round(r, 11)) using (var b = Theme.Accent(r)) g.FillPath(b, p);
-                TextRenderer.DrawText(g, text, f, Rectangle.Round(r), Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                using (var p = Theme.Round(r, 11)) using (var pen = new Pen(Theme.Line)) g.DrawPath(pen, p);
+                TextRenderer.DrawText(g, text, f, Rectangle.Round(r), Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             }
         }
 
         void DrawStatusIcon(Graphics g, RectangleF r)
         {
-            Color c = mode == Mode.Done ? Theme.Ok : mode == Mode.Missing || mode == Mode.Error ? Theme.Warn : Theme.A2;
-            using (var b = new SolidBrush(Color.FromArgb(38, c))) g.FillEllipse(b, r);
-            using (var pen = new Pen(c, 3.2f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round })
+            bool done = mode == Mode.Done;
+            float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2;
+            if (done) using (var b = new SolidBrush(Color.White)) g.FillEllipse(b, r);
+            else using (var pen = new Pen(Theme.Line, 1.5f)) g.DrawEllipse(pen, r);
+            using (var pen = new Pen(done ? Color.Black : Color.White, 3.2f) { StartCap = LineCap.Round, EndCap = LineCap.Round, LineJoin = LineJoin.Round })
             {
-                float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2;
-                if (mode == Mode.Done)
-                    g.DrawLines(pen, new[] { new PointF(cx - 10, cy), new PointF(cx - 3, cy + 7), new PointF(cx + 11, cy - 8) });
+                if (done)
+                {
+                    // Галочка дорисовывается за несколько кадров.
+                    var a = new PointF(cx - 10, cy);
+                    var b = new PointF(cx - 3, cy + 7);
+                    var c = new PointF(cx + 11, cy - 8);
+                    float k = checkT * checkT * (3 - 2 * checkT);
+                    if (k < 0.33f)
+                    {
+                        float q = k / 0.33f;
+                        if (q > 0.01f) g.DrawLine(pen, a, new PointF(a.X + (b.X - a.X) * q, a.Y + (b.Y - a.Y) * q));
+                    }
+                    else
+                    {
+                        float q = (k - 0.33f) / 0.67f;
+                        g.DrawLines(pen, new[] { a, b, new PointF(b.X + (c.X - b.X) * q, b.Y + (c.Y - b.Y) * q) });
+                    }
+                }
                 else if (mode == Mode.Missing || mode == Mode.Error)
                 {
                     g.DrawLine(pen, cx, cy - 11, cx, cy + 3);
-                    g.FillEllipse(new SolidBrush(c), cx - 2.2f, cy + 8, 4.4f, 4.4f);
+                    using (var dot = new SolidBrush(Color.White)) g.FillEllipse(dot, cx - 2.2f, cy + 8, 4.4f, 4.4f);
                 }
                 else if (mode == Mode.Working)
                 {
@@ -572,11 +601,10 @@ namespace YMusicMod
                 var dot = new RectangleF(x + 4, r.Y + 8, 22, 22);
                 bool done = i < step || mode == Mode.Done;
                 bool active = i == step && mode == Mode.Working;
-                if (done) using (var b = Theme.Accent(dot)) g.FillEllipse(b, dot);
-                else using (var b = new SolidBrush(active ? Theme.CardHover : Theme.Card)) g.FillEllipse(b, dot);
-                if (active) using (var pen = new Pen(Theme.A2, 2f)) g.DrawEllipse(pen, dot);
+                if (done) using (var b = new SolidBrush(Color.White)) g.FillEllipse(b, dot);
+                else using (var pen = new Pen(active ? Color.White : Theme.Line, active ? 2f : 1.3f)) g.DrawEllipse(pen, dot);
                 if (done)
-                    using (var pen = new Pen(Color.White, 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
+                    using (var pen = new Pen(Color.Black, 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
                         g.DrawLines(pen, new[] { new PointF(dot.X + 6.5f, dot.Y + 11), new PointF(dot.X + 9.5f, dot.Y + 14), new PointF(dot.X + 15.5f, dot.Y + 8) });
                 using (var f = Theme.F(9f, FontStyle.Regular, done || active))
                     TextRenderer.DrawText(g, steps[i], f, new Point((int)x + 32, (int)r.Y + 9), done || active ? Theme.Text : Theme.Muted);
@@ -586,8 +614,8 @@ namespace YMusicMod
         void DrawProgress(Graphics g, RectangleF r)
         {
             using (var p = Theme.Round(r, 3)) using (var b = new SolidBrush(Theme.Line)) g.FillPath(b, p);
-            float frac = mode == Mode.Done ? 1f : step < 0 ? 0f : Math.Min(1f, (step + (mode == Mode.Working ? 0.5f : 0f)) / steps.Length);
-            if (frac <= 0) return;
+            float frac = shownFrac;
+            if (frac <= 0.003f) return;
             var fill = new RectangleF(r.X, r.Y, r.Width * frac, r.Height);
             using (var p = Theme.Round(fill, 3))
             {
@@ -643,8 +671,8 @@ namespace YMusicMod
             Color fg = Theme.Text;
             if (Kind == BtnKind.Window)
             {
-                if (hover) using (var p = Theme.Round(r, 8)) using (var b = new SolidBrush(Danger ? Color.FromArgb(232, 17, 35) : Theme.CardHover)) g.FillPath(b, p);
-                using (var f = Theme.F(10f)) TextRenderer.DrawText(g, Glyph, f, ClientRectangle, hover ? Color.White : Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                if (hover) using (var p = Theme.Round(r, 8)) using (var b = new SolidBrush(Danger ? Color.White : Theme.CardHover)) g.FillPath(b, p);
+                using (var f = Theme.F(10f)) TextRenderer.DrawText(g, Glyph, f, ClientRectangle, hover ? (Danger ? Color.Black : Color.White) : Theme.Muted, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                 return;
             }
             using (var p = Theme.Round(r, Kind == BtnKind.Ghost ? 10 : 14))
@@ -652,13 +680,13 @@ namespace YMusicMod
                 if (!Enabled)
                 {
                     using (var b = new SolidBrush(Theme.Card)) g.FillPath(b, p);
-                    fg = Color.FromArgb(90, 90, 100);
+                    fg = Color.FromArgb(92, 92, 92);
                 }
                 else if (Kind == BtnKind.Primary)
                 {
                     using (var b = Theme.Accent(r)) g.FillPath(b, p);
-                    if (hover) using (var b = new SolidBrush(Color.FromArgb(28, Color.White))) g.FillPath(b, p);
-                    fg = Color.White;
+                    if (hover) using (var b = new SolidBrush(Color.FromArgb(38, Color.Black))) g.FillPath(b, p);
+                    fg = Color.Black;
                 }
                 else if (Kind == BtnKind.Secondary)
                 {
@@ -668,7 +696,7 @@ namespace YMusicMod
                 else
                 {
                     if (hover) using (var b = new SolidBrush(Theme.CardHover)) g.FillPath(b, p);
-                    fg = hover ? Theme.Text : Theme.A2;
+                    fg = hover ? Theme.Text : Theme.Muted;
                 }
             }
             using (var f = Theme.F(Kind == BtnKind.Ghost ? 9.5f : 11f, FontStyle.Regular, true))
@@ -730,7 +758,7 @@ namespace YMusicMod
             }
             float d = r.Height - 6;
             float x = r.X + 3 + (r.Width - d - 6) * knob;
-            using (var b = new SolidBrush(Enabled ? Color.White : Color.Gray)) g.FillEllipse(b, x, r.Y + 3, d, d);
+            using (var b = new SolidBrush(!Enabled ? Color.Gray : knob > 0.5f ? Color.Black : Color.White)) g.FillEllipse(b, x, r.Y + 3, d, d);
         }
     }
 

@@ -22,34 +22,51 @@ const YMM_MIME = {
 const YMM_FONT_EXT = [".ttf", ".otf", ".woff", ".woff2"];
 const YMM_LOGO_EXT = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".ico", ".bmp"];
 const YMM_STATS = ymmPath.join(YMM_DIR, "stats.json");
+const YMM_BACKUPS = ymmPath.join(YMM_DIR, "backups");
 const YMM_LOGO_PNG = "__YMMOD_LOGO_PNG__";
 const YMM_HEX = /^#[0-9a-fA-F]{6}$/;
 
 const YMM_PRESET_KEYS = [
   "blur", "dim", "saturation", "contentAlpha", "bgMode", "slideInterval", "accentMode", "accent", "rounded", "glow",
   "playerGlass", "hideWaveArt", "beatSync", "beatIntensity", "bgPulse", "thumbStyle", "thumbRainbow",
-  "visualizer", "visualizerOpacity", "reducedMotion", "cleanVibe"
+  "visualizer", "visualizerOpacity", "reducedMotion", "cleanVibe",
+  "visPlace", "visHeight", "visColor", "visColor1", "visColor2", "visSym", "visGlow", "visSens", "visSmooth"
 ];
+const YMM_VIS_MODES = ["off", "bars", "wave", "mirror", "aurora", "scope", "rings", "stars"];
 const YMM_DEFAULTS = {
   version: 2,
   backgroundFile: null, backgrounds: [], bgMode: "single", slideInterval: 10,
   dayFile: null, nightFile: null, dayStartHour: 8, nightStartHour: 20,
   blur: 0, dim: 30, saturation: 100, contentAlpha: 55,
-  accentMode: "cover", accent: "#ff5c4d",
+  accentMode: "fixed", accent: "#f2f2f2",
   rounded: true, glow: true, playerGlass: 18, hideWaveArt: true,
   beatSync: true, beatIntensity: 70, bgPulse: true,
-  thumbStyle: "pinwheel", thumbRainbow: false,
-  visualizer: "bars", visualizerOpacity: 70,
+  thumbStyle: "default", thumbRainbow: false,
+  visualizer: "wave", visualizerOpacity: 70,
   reducedMotion: false, hideButton: false, volumeWheel: true,
   discordRpc: true, discordClientId: "1558904911515754496",
   cleanVibe: true, miniAutoHide: true, miniPos: null,
   presets: {}, activePreset: null,
-  sound: "off", studioAmount: 60, studioWidth: 50, studioAmbience: 20, leveler: false, playMode: "normal",
+  sound: "studio", studioAmount: 60, studioWidth: 50, studioAmbience: 20, leveler: false, playMode: "normal",
   fontFamily: "", fontSource: "", fontFile: null, fontHeadings: true, fontFiles: [],
-  logoMode: "original", logoFile: null, logoText: "YMusicMod", logoWindowIcon: false,
-  hideKids: false, hidePodcasts: false,
-  prefetchCovers: true, scrollBoost: true
+  logoMode: "mod", logoFile: null, logoText: "YMusicMod", logoWindowIcon: false,
+  hideKids: true, hidePodcasts: true,
+  prefetchCovers: true, scrollBoost: true,
+  // Визуализатор
+  visPlace: "bar", visHeight: 120, visColor: "accent", visColor1: "#ffffff", visColor2: "#8c8c8c",
+  visSym: true, visGlow: 60, visSens: 55, visSmooth: 50, visFps: 60, visFsMode: "rings",
+  // Интерфейс
+  uiMotion: true, splash: true, panelPeek: true, trackToast: false, notifyTrack: false,
+  globalKeys: true, taskbarTitle: true, taskbarProgress: false, fullscreenFx: true, seenVersion: "",
+  recentColors: [],
+  // Звук
+  soundProfile: "balanced", studioBass: 0, balance: 0, playRate: 100, preservePitch: true, loudnessNorm: false,
+  // Discord
+  discordShow: "title", discordLine1: "{title}", discordLine2: "{artist}", discordArtistIcon: true,
+  discordArtistButton: true, discordAlbumInfo: true, discordOnPause: "show", discordPauseHide: 10,
+  modVersion: ""
 };
+const YMM_LINE = (v, d) => (typeof v === "string" ? v.replace(/[\r\n]+/g, " ").slice(0, 80) : d);
 const ymmClamp = (v, lo, hi, d) => {
   const n = Number(v);
   return Number.isFinite(n) ? Math.min(Math.max(n, lo), hi) : d;
@@ -67,7 +84,7 @@ const ymmSanitize = (raw, base = YMM_DEFAULTS) => {
   if (has("backgrounds") && Array.isArray(r.backgrounds)) c.backgrounds = [...new Set(r.backgrounds.map(ymmSafeFile).filter(Boolean))];
   if (has("dayFile")) c.dayFile = ymmSafeFile(r.dayFile);
   if (has("nightFile")) c.nightFile = ymmSafeFile(r.nightFile);
-  if (has("bgMode")) c.bgMode = ymmEnum(r.bgMode, ["single", "slideshow", "daynight"], c.bgMode);
+  if (has("bgMode")) c.bgMode = ymmEnum(r.bgMode, ["single", "slideshow", "daynight", "cover"], c.bgMode);
   if (has("slideInterval")) c.slideInterval = ymmClamp(r.slideInterval, 1, 240, c.slideInterval);
   if (has("dayStartHour")) c.dayStartHour = Math.round(ymmClamp(r.dayStartHour, 0, 23, c.dayStartHour));
   if (has("nightStartHour")) c.nightStartHour = Math.round(ymmClamp(r.nightStartHour, 0, 23, c.nightStartHour));
@@ -83,8 +100,32 @@ const ymmSanitize = (raw, base = YMM_DEFAULTS) => {
   if (has("playerGlass")) c.playerGlass = ymmClamp(r.playerGlass, 0, 40, c.playerGlass);
   if (has("beatIntensity")) c.beatIntensity = ymmClamp(r.beatIntensity, 0, 100, c.beatIntensity);
   if (has("thumbStyle")) c.thumbStyle = ymmEnum(r.thumbStyle, ["pinwheel", "orb", "default"], c.thumbStyle);
-  if (has("visualizer")) c.visualizer = ymmEnum(r.visualizer, ["off", "bars", "wave", "mirror"], c.visualizer);
+  if (has("visualizer")) c.visualizer = ymmEnum(r.visualizer, YMM_VIS_MODES, c.visualizer);
   if (has("visualizerOpacity")) c.visualizerOpacity = ymmClamp(r.visualizerOpacity, 10, 100, c.visualizerOpacity);
+  if (has("visPlace")) c.visPlace = ymmEnum(r.visPlace, ["bar", "full"], c.visPlace);
+  if (has("visHeight")) c.visHeight = ymmClamp(r.visHeight, 48, 280, c.visHeight);
+  if (has("visColor")) c.visColor = ymmEnum(r.visColor, ["cover", "accent", "rainbow", "custom"], c.visColor);
+  for (const k of ["visColor1", "visColor2"]) if (has(k) && typeof r[k] === "string" && YMM_HEX.test(r[k])) c[k] = r[k].toLowerCase();
+  if (has("visGlow")) c.visGlow = ymmClamp(r.visGlow, 0, 100, c.visGlow);
+  if (has("visSens")) c.visSens = ymmClamp(r.visSens, 0, 100, c.visSens);
+  if (has("visSmooth")) c.visSmooth = ymmClamp(r.visSmooth, 0, 100, c.visSmooth);
+  if (has("visFps")) c.visFps = ymmEnum(Number(r.visFps), [30, 60, 120], c.visFps);
+  if (has("visFsMode")) c.visFsMode = ymmEnum(r.visFsMode, YMM_VIS_MODES.filter((m) => m !== "off"), c.visFsMode);
+  for (const k of ["visSym", "uiMotion", "splash", "panelPeek", "trackToast", "notifyTrack", "globalKeys", "taskbarTitle", "taskbarProgress", "fullscreenFx", "preservePitch", "loudnessNorm", "discordArtistIcon", "discordArtistButton", "discordAlbumInfo"]) {
+    if (has(k)) c[k] = Boolean(r[k]);
+  }
+  if (has("seenVersion")) c.seenVersion = typeof r.seenVersion === "string" ? r.seenVersion.slice(0, 40) : c.seenVersion;
+  if (has("modVersion")) c.modVersion = typeof r.modVersion === "string" ? r.modVersion.slice(0, 40) : c.modVersion;
+  if (has("recentColors") && Array.isArray(r.recentColors)) c.recentColors = r.recentColors.filter((x) => typeof x === "string" && YMM_HEX.test(x)).slice(0, 8);
+  if (has("soundProfile")) c.soundProfile = ymmEnum(r.soundProfile, ["balanced", "warm", "club", "vocal", "night"], c.soundProfile);
+  if (has("studioBass")) c.studioBass = ymmClamp(r.studioBass, -6, 9, c.studioBass);
+  if (has("balance")) c.balance = ymmClamp(r.balance, -100, 100, c.balance);
+  if (has("playRate")) c.playRate = ymmClamp(r.playRate, 50, 200, c.playRate);
+  if (has("discordShow")) c.discordShow = ymmEnum(r.discordShow, ["title", "artist", "app"], c.discordShow);
+  if (has("discordLine1")) c.discordLine1 = YMM_LINE(r.discordLine1, c.discordLine1);
+  if (has("discordLine2")) c.discordLine2 = YMM_LINE(r.discordLine2, c.discordLine2);
+  if (has("discordOnPause")) c.discordOnPause = ymmEnum(r.discordOnPause, ["show", "hide"], c.discordOnPause);
+  if (has("discordPauseHide")) c.discordPauseHide = ymmClamp(r.discordPauseHide, 1, 120, c.discordPauseHide);
   if (has("discordClientId")) c.discordClientId = typeof r.discordClientId === "string" && /^\d{0,24}$/.test(r.discordClientId.trim()) ? r.discordClientId.trim() : c.discordClientId;
   if (has("presets") && r.presets && typeof r.presets === "object") {
     const out = {};
@@ -124,15 +165,66 @@ const ymmPickPreset = (c) => {
 };
 
 const ymmEnsureDirs = () => ymmFs.mkdirSync(YMM_ASSETS, { recursive: true });
+// Резервные копии настроек: при смене версии мода и раз в день, храним последние 20.
+const ymmBackupList = () => {
+  try {
+    return ymmFs.readdirSync(YMM_BACKUPS).filter((f) => /^config-[\w.-]+\.json$/.test(f)).sort().reverse();
+  } catch {
+    return [];
+  }
+};
+const ymmStamp = () => new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
+const ymmBackup = (reason) => {
+  try {
+    if (!ymmFs.existsSync(YMM_CONFIG)) return null;
+    ymmFs.mkdirSync(YMM_BACKUPS, { recursive: true });
+    const name = `config-${ymmStamp()}-${String(reason).replace(/[^\w.-]/g, "")}.json`;
+    ymmFs.copyFileSync(YMM_CONFIG, ymmPath.join(YMM_BACKUPS, name));
+    for (const old of ymmBackupList().slice(20)) ymmFs.unlinkSync(ymmPath.join(YMM_BACKUPS, old));
+    return name;
+  } catch (e) {
+    console.warn("[YMusicMod] backup failed", e);
+    return null;
+  }
+};
+const ymmReadJson = (file) => {
+  const v = JSON.parse(ymmFs.readFileSync(file, "utf8"));
+  if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error("not an object");
+  return v;
+};
+// Битый config.json не должен стирать настройки: откладываем его и берём свежую копию.
+const ymmReadConfig = () => {
+  if (!ymmFs.existsSync(YMM_CONFIG)) return null;
+  try {
+    return ymmReadJson(YMM_CONFIG);
+  } catch (e) {
+    console.warn("[YMusicMod] config is broken, restoring from backup", e && e.message);
+    try {
+      ymmFs.renameSync(YMM_CONFIG, ymmPath.join(YMM_DIR, `config.broken-${ymmStamp()}.json`));
+    } catch {
+    }
+    for (const name of ymmBackupList()) {
+      try {
+        return ymmReadJson(ymmPath.join(YMM_BACKUPS, name));
+      } catch {
+      }
+    }
+    return null;
+  }
+};
+const ymmWriteConfigNow = (cfg) => {
+  ymmEnsureDirs();
+  const tmp = YMM_CONFIG + ".tmp";
+  ymmFs.writeFileSync(tmp, JSON.stringify(cfg, null, 2), "utf8");
+  ymmFs.renameSync(tmp, YMM_CONFIG);
+};
 let ymmConfigCache = null;
 const ymmLoad = () => {
   if (ymmConfigCache) return ymmConfigCache;
   ymmEnsureDirs();
-  let raw = null;
-  try {
-    raw = JSON.parse(ymmFs.readFileSync(YMM_CONFIG, "utf8"));
-  } catch {
-  }
+  let raw = ymmReadConfig();
+  if (raw && raw.modVersion !== YMM_VERSION) ymmBackup(`before-${YMM_VERSION}`);
+  else if (raw && !ymmBackupList().some((f) => f.startsWith(`config-${ymmStamp().slice(0, 10)}`))) ymmBackup("daily");
   // Миграция нужна только старым конфигам без поля version; первый запуск получает дефолты.
   if (!raw || typeof raw !== "object") raw = { version: 2 };
   else if (!raw.version) {
@@ -140,7 +232,10 @@ const ymmLoad = () => {
     const existing = ymmFs.readdirSync(YMM_ASSETS).filter((f) => [...YMM_IMAGE_EXT, ...YMM_VIDEO_EXT].includes(ymmPath.extname(f).toLowerCase()));
     raw.backgrounds = existing;
   }
-  ymmConfigCache = ymmSanitize(raw);
+  const upgraded = raw.modVersion !== YMM_VERSION;
+  ymmConfigCache = ymmSanitize({ ...raw, modVersion: YMM_VERSION });
+  // Сразу записываем новую версию, иначе копия «перед обновлением» делалась бы при каждом запуске.
+  if (upgraded) ymmSave(ymmConfigCache);
   return ymmConfigCache;
 };
 let ymmSaveTimer = null;
@@ -148,11 +243,9 @@ const ymmSave = (cfg) => {
   ymmConfigCache = cfg;
   clearTimeout(ymmSaveTimer);
   ymmSaveTimer = setTimeout(() => {
+    ymmSaveTimer = null;
     try {
-      ymmEnsureDirs();
-      const tmp = YMM_CONFIG + ".tmp";
-      ymmFs.writeFileSync(tmp, JSON.stringify(cfg, null, 2), "utf8");
-      ymmFs.renameSync(tmp, YMM_CONFIG);
+      ymmWriteConfigNow(cfg);
     } catch (e) {
       console.warn("[YMusicMod] save failed", e);
     }
@@ -163,7 +256,7 @@ const ymmFlushSave = () => {
   clearTimeout(ymmSaveTimer);
   ymmSaveTimer = null;
   try {
-    ymmFs.writeFileSync(YMM_CONFIG, JSON.stringify(ymmConfigCache, null, 2), "utf8");
+    ymmWriteConfigNow(ymmConfigCache);
   } catch {
   }
 };
@@ -199,7 +292,7 @@ const ymmPayload = () => {
     return `${YMM_SCHEME}://assets/${encodeURIComponent(name)}?v=${mtime}`;
   };
   const fonts = cfg.fontFiles.map((f) => ({ ...f, url: assetUrl(f.file) })).filter((f) => f.url);
-  return { config: cfg, files, fonts, logoUrl: assetUrl(cfg.logoFile), modVersion: YMM_VERSION, appVersion, discord: ymmDiscord.status() };
+  return { config: cfg, defaults: YMM_DEFAULTS, files, fonts, logoUrl: assetUrl(cfg.logoFile), modVersion: YMM_VERSION, appVersion, discord: ymmDiscord.status() };
 };
 
 // Протокол ymmod:// (фоны и окно мини-плеера)
@@ -241,69 +334,10 @@ ymmElectron.app.whenReady().then(() => {
   }
 });
 
-// Цвет обложки
-const ymmCoverCache = new Map();
-const ymmRgbToHsl = (r, g, b) => {
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  if (max === min) return [0, 0, l];
-  const d = max - min;
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  let h;
-  if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
-  else if (max === g) h = (b - r) / d + 2;
-  else h = (r - g) / d + 4;
-  return [h * 60, s, l];
-};
-const ymmHslToHex = (h, s, l) => {
-  const k = (n) => (n + h / 30) % 12;
-  const a = s * Math.min(l, 1 - l);
-  const f = (n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))));
-  return "#" + [f(0), f(8), f(4)].map((x) => x.toString(16).padStart(2, "0")).join("");
-};
-const ymmCoverColor = async (url) => {
-  if (typeof url !== "string") return null;
-  let parsed;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return null;
-  }
-  if (parsed.protocol !== "https:" || !/(^|\.)(yandex\.net|yandex\.ru|yastatic\.net)$/.test(parsed.hostname)) return null;
-  if (ymmCoverCache.has(url)) return ymmCoverCache.get(url);
-  const res = await ymmElectron.net.fetch(url);
-  if (!res.ok) return null;
-  const buf = Buffer.from(await res.arrayBuffer());
-  const img = ymmElectron.nativeImage.createFromBuffer(buf);
-  if (img.isEmpty()) return null;
-  const px = img.resize({ width: 40, height: 40, quality: "good" }).toBitmap(); // BGRA
-  const bins = Array.from({ length: 36 }, () => ({ w: 0, r: 0, g: 0, b: 0 }));
-  let ar = 0, ag = 0, ab = 0, n = 0;
-  for (let i = 0; i < px.length; i += 4) {
-    const b = px[i], g = px[i + 1], r = px[i + 2];
-    ar += r; ag += g; ab += b; n++;
-    const [h, s, l] = ymmRgbToHsl(r, g, b);
-    const w = s * s * (1 - Math.abs(l - 0.5) * 1.6);
-    if (w <= 0.02) continue;
-    const bin = bins[Math.floor(h / 10) % 36];
-    bin.w += w; bin.r += r * w; bin.g += g * w; bin.b += b * w;
-  }
-  let best = bins[0];
-  for (const bin of bins) if (bin.w > best.w) best = bin;
-  let [h, s, l] = best.w > n * 0.015 ? ymmRgbToHsl(best.r / best.w, best.g / best.w, best.b / best.w) : ymmRgbToHsl(ar / n, ag / n, ab / n);
-  s = s < 0.12 ? s : Math.min(1, Math.max(s, 0.62));
-  l = Math.min(Math.max(l, 0.52), 0.66);
-  const hex = ymmHslToHex(h, s, l);
-  if (ymmCoverCache.size > 200) ymmCoverCache.clear();
-  ymmCoverCache.set(url, hex);
-  return hex;
-};
-
 // Discord Rich Presence
 const ymmDiscord = (() => {
   let sock = null, ready = false, clientId = "", wanted = false, lastActivity = null, retryTimer = null, buf = Buffer.alloc(0);
-  let lastError = "", user = "", lastAck = 0;
+  let lastError = "", user = "", lastAck = 0, lastSent = 0, sendTimer = null, retryDelay = 5000, plain = false;
   const frame = (op, obj) => {
     const json = Buffer.from(JSON.stringify(obj), "utf8");
     const head = Buffer.alloc(8);
@@ -314,9 +348,25 @@ const ymmDiscord = (() => {
   const send = (op, obj) => {
     if (sock && !sock.destroyed) sock.write(frame(op, obj));
   };
+  // Discord пропускает 5 обновлений за 20 секунд и молча глотает лишнее. Новый трек уходит сразу,
+  // серия перемоток склеивается: через паузу отправится только последнее состояние.
+  const YMM_RPC_GAP = 4200;
   const pushActivity = () => {
     if (!ready) return;
-    send(1, { cmd: "SET_ACTIVITY", args: { pid: process.pid, activity: lastActivity || undefined }, nonce: ymmCrypto.randomUUID() });
+    clearTimeout(sendTimer);
+    const wait = lastSent + YMM_RPC_GAP - Date.now();
+    if (wait > 0) {
+      sendTimer = setTimeout(pushActivity, wait);
+      return;
+    }
+    lastSent = Date.now();
+    let activity = lastActivity || undefined;
+    if (activity && plain) {
+      activity = { ...activity, assets: { ...activity.assets } };
+      delete activity.assets.large_url;
+      delete activity.assets.small_url;
+    }
+    send(1, { cmd: "SET_ACTIVITY", args: { pid: process.pid, activity }, nonce: ymmCrypto.randomUUID() });
   };
   const cleanup = () => {
     ready = false;
@@ -327,20 +377,31 @@ const ymmDiscord = (() => {
     sock = null;
     buf = Buffer.alloc(0);
   };
+  // Discord перезапустили - подхватываем быстро, если его долго нет - стучимся реже.
   const scheduleRetry = () => {
     clearTimeout(retryTimer);
-    if (wanted) retryTimer = setTimeout(connect, 10000);
+    if (!wanted) return;
+    retryTimer = setTimeout(connect, retryDelay);
+    retryDelay = Math.min(retryDelay * 1.6, 60000);
   };
   const onMessage = (op, msg) => {
     if (op === 1 && msg && msg.evt === "READY") {
       ready = true;
       lastError = "";
+      retryDelay = 5000;
+      lastSent = 0;
       user = (msg.data && msg.data.user && (msg.data.user.global_name || msg.data.user.username)) || "";
       pushActivity();
     } else if (op === 1 && msg && msg.evt === "ERROR") {
       lastError = (msg.data && msg.data.message) || "ошибка Discord";
       console.warn("[YMusicMod] discord error", lastError);
-    } else if (op === 1 && msg && msg.cmd === "SET_ACTIVITY") {
+      // Старая версия Discord может не знать про ссылки на картинках. Лучше статус без них, чем никакого.
+      if (msg.cmd === "SET_ACTIVITY" && !plain) {
+        plain = true;
+        lastSent = 0;
+        pushActivity();
+      }
+    } else if (op === 1 && msg && msg.cmd === "SET_ACTIVITY" && msg.evt !== "ERROR") {
       lastAck = Date.now();
       lastError = "";
     } else if (op === 2) {
@@ -421,31 +482,52 @@ const ymmFmtTime = (sec) => {
   const t = Math.max(0, Math.floor(Number(sec) || 0));
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 };
-const ymmBuildActivity = (p) => {
+const YMM_MUSIC_URL = /^https:\/\/music\.yandex\.(ru|com|by|kz|uz)\//;
+const ymmBuildActivity = (p, cfg) => {
   if (!p || typeof p !== "object" || !p.title) return null;
   const s = (v, n = 120) => (typeof v === "string" ? v.trim().slice(0, n) : "");
   const pad = (v) => (v.length < 2 ? v.padEnd(2, " ") : v);
+  const link = (v) => (typeof v === "string" && YMM_MUSIC_URL.test(v) && v.length < 256 ? v : "");
   const title = s(p.title);
   const artist = s(p.artist) || "Яндекс Музыка";
+  const firstArtist = s(p.artistName) || artist.split(",")[0].trim();
+  const album = s(p.album);
+  const year = Number.isFinite(p.year) && p.year > 1800 ? String(p.year) : "";
+  const genre = s(p.genre, 40);
+  const mode = s(p.mode, 20);
+  const fill = (tpl) => String(tpl).replace(/\{(title|artist|album|year|genre|mode)\}/g, (_, k) => ({ title, artist, album, year, genre, mode })[k] || "").replace(/\s+·\s+$/, "").replace(/\s{2,}/g, " ").trim();
   const search = `https://music.yandex.ru/search?text=${encodeURIComponent(`${artist} ${title}`.trim())}`;
-  const trackUrl = typeof p.trackUrl === "string" && /^https:\/\/music\.yandex\.(ru|com|by|kz|uz)\//.test(p.trackUrl) && p.trackUrl.length < 256 ? p.trackUrl : search;
+  const trackUrl = link(p.trackUrl) || search;
+  const artistUrl = link(p.artistUrl) || `https://music.yandex.ru/search?text=${encodeURIComponent(firstArtist)}`;
+  const albumUrl = link(p.albumUrl) || trackUrl;
+  const rate = Number.isFinite(p.rate) && p.rate > 0 ? p.rate : 1;
+  const line1 = fill(cfg.discordLine1) || title;
+  let line2 = fill(cfg.discordLine2) || artist;
+  if (mode && !/\{mode\}/.test(cfg.discordLine2)) line2 = `${line2} · ${mode}`;
+  const info = [album, cfg.discordAlbumInfo ? year : "", cfg.discordAlbumInfo ? genre : ""].filter(Boolean).join(" · ");
   const a = {
     type: 2,
-    status_display_type: 1,
-    details: pad(title),
+    status_display_type: { app: 0, artist: 1, title: 2 }[cfg.discordShow],
+    details: pad(line1.slice(0, 120)),
     details_url: trackUrl,
-    state: pad(p.paused ? `⏸ ${ymmFmtTime(p.position)} / ${ymmFmtTime(p.duration)} · ${artist}`.slice(0, 120) : artist),
-    state_url: `https://music.yandex.ru/search?text=${encodeURIComponent(artist)}`,
-    assets: { large_text: pad(s(p.album) || "Яндекс Музыка") },
-    buttons: [{ label: "Слушать в Яндекс Музыке", url: trackUrl }],
+    state: pad((p.paused ? `На паузе · ${ymmFmtTime(p.position / rate)} / ${ymmFmtTime(p.duration / rate)}` : line2).slice(0, 120)),
+    state_url: artistUrl,
+    assets: { large_text: pad((info || "Яндекс Музыка").slice(0, 120)), large_url: albumUrl },
+    buttons: [{ label: "Слушать трек", url: trackUrl }],
     instance: false
   };
-  if (typeof p.cover === "string" && /^https:\/\//.test(p.cover) && p.cover.length < 256) a.assets.large_image = p.cover;
-  a.assets.small_image = "https://raw.githubusercontent.com/attent10nc/YMusicMod/main/assets/logo-256.png";
-  a.assets.small_text = p.paused ? "На паузе" : "YMusicMod";
+  if (cfg.discordArtistButton && firstArtist) a.buttons.push({ label: `Артист: ${firstArtist}`.slice(0, 32), url: artistUrl });
+  // Discord сам забирает картинку по ссылке. 1000x1000 вместо 400x400 - обложка не мылится на больших экранах.
+  const hd = (u) => u.replace(/\/\d+x\d+$/, "/1000x1000");
+  if (typeof p.cover === "string" && /^https:\/\//.test(p.cover) && p.cover.length < 256) a.assets.large_image = hd(p.cover);
+  const icon = cfg.discordArtistIcon && typeof p.artistCover === "string" && /^https:\/\//.test(p.artistCover) && p.artistCover.length < 256 && p.artistCover !== p.cover ? p.artistCover : "";
+  a.assets.small_image = icon || "https://raw.githubusercontent.com/attent10nc/YMusicMod/main/assets/logo-256.png";
+  a.assets.small_text = pad((p.paused ? "На паузе" : icon ? firstArtist : mode || "Яндекс Музыка").slice(0, 120));
+  if (icon) a.assets.small_url = artistUrl;
+  // На slowed и nightcore трек реально длится дольше или короче - полоска в Discord должна это знать.
   const now = Date.now();
   if (!p.paused && Number.isFinite(p.position) && Number.isFinite(p.duration) && p.duration > 0) {
-    a.timestamps = { start: Math.round(now - p.position * 1000), end: Math.round(now + (p.duration - p.position) * 1000) };
+    a.timestamps = { start: Math.round(now - (p.position / rate) * 1000), end: Math.round(now + ((p.duration - p.position) / rate) * 1000) };
   }
   return a;
 };
@@ -632,6 +714,7 @@ const ymmSetMini = (mainWin, on) => {
 };
 ymmElectron.app.on("will-quit", () => {
   ymmStopFsWatcher();
+  ymmGlobalKeysOn = false;
   try {
     ymmElectron.globalShortcut.unregisterAll();
   } catch {
@@ -653,9 +736,70 @@ ymmElectron.ipcMain.on("ymmod-mini:cmd", (e, cmd, val) => {
     ymmSetGhost(!ymmMini.ghost);
     return;
   }
-  if (!main || main.isDestroyed() || !["toggle", "next", "prev", "like", "seek"].includes(cmd)) return;
-  main.webContents.executeJavaScript(`window.__ymmMiniCmd && window.__ymmMiniCmd(${JSON.stringify(cmd)}, ${Number(val) || 0})`).catch(() => {});
+  if (!main || main.isDestroyed() || !YMM_PLAYER_CMDS.includes(cmd)) return;
+  ymmPlayerCmd(main, cmd, val);
 });
+const YMM_PLAYER_CMDS = ["toggle", "next", "prev", "like", "seek", "volup", "voldown"];
+const ymmPlayerCmd = (win, cmd, val) => {
+  if (win && !win.isDestroyed()) win.webContents.executeJavaScript(`window.__ymmMiniCmd && window.__ymmMiniCmd(${JSON.stringify(cmd)}, ${Number(val) || 0})`).catch(() => {});
+};
+
+// Глобальные клавиши: работают, даже если окно свёрнуто или открыта игра.
+const YMM_GLOBAL_KEYS = { "CommandOrControl+Alt+Space": "toggle", "CommandOrControl+Alt+Right": "next", "CommandOrControl+Alt+Left": "prev", "CommandOrControl+Alt+Up": "volup", "CommandOrControl+Alt+Down": "voldown", "CommandOrControl+Alt+L": "like" };
+let ymmGlobalKeysOn = false;
+const ymmSetGlobalKeys = (on) => {
+  if (on === ymmGlobalKeysOn) return;
+  ymmGlobalKeysOn = on;
+  for (const [key, cmd] of Object.entries(YMM_GLOBAL_KEYS)) {
+    try {
+      if (on) ymmElectron.globalShortcut.register(key, () => ymmPlayerCmd(ymmWin(), cmd, 0));
+      else ymmElectron.globalShortcut.unregister(key);
+    } catch (e) {
+      console.warn("[YMusicMod] global key", key, e && e.message);
+    }
+  }
+};
+
+// Кнопки на превью в панели задач. Значки рисуем сами, чтобы не тащить файлы в установщик.
+const ymmGlyph = (draw) => {
+  const size = 20;
+  const buf = Buffer.alloc(size * size * 4);
+  const SS = 4;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      let hit = 0;
+      for (let i = 0; i < SS; i++) for (let j = 0; j < SS; j++) if (draw((x + (i + 0.5) / SS) / size, (y + (j + 0.5) / SS) / size)) hit++;
+      const o = (y * size + x) * 4;
+      buf[o] = buf[o + 1] = buf[o + 2] = 255;
+      buf[o + 3] = Math.round((hit / (SS * SS)) * 255);
+    }
+  }
+  return ymmElectron.nativeImage.createFromBitmap(buf, { width: size, height: size });
+};
+const ymmTri = (x, y, x0, x1) => {
+  const t = (x - x0) / (x1 - x0);
+  return t >= 0 && t <= 1 && Math.abs(y - 0.5) <= 0.32 * (1 - t);
+};
+const ymmRect = (x, y, x0, x1) => x >= x0 && x <= x1 && y >= 0.18 && y <= 0.82;
+let ymmThumbIcons = null;
+const ymmThumbbar = (win, playing) => {
+  if (process.platform !== "win32" || !win || win.isDestroyed()) return;
+  ymmThumbIcons = ymmThumbIcons || {
+    prev: ymmGlyph((x, y) => ymmRect(x, y, 0.18, 0.28) || ymmTri(1 - x, y, 0.18, 0.72)),
+    next: ymmGlyph((x, y) => ymmRect(x, y, 0.72, 0.82) || ymmTri(x, y, 0.18, 0.72)),
+    play: ymmGlyph((x, y) => ymmTri(x, y, 0.26, 0.86)),
+    pause: ymmGlyph((x, y) => ymmRect(x, y, 0.26, 0.42) || ymmRect(x, y, 0.58, 0.74))
+  };
+  try {
+    win.setThumbarButtons([
+      { tooltip: "Предыдущий", icon: ymmThumbIcons.prev, click: () => ymmPlayerCmd(win, "prev", 0) },
+      { tooltip: playing ? "Пауза" : "Играть", icon: playing ? ymmThumbIcons.pause : ymmThumbIcons.play, click: () => ymmPlayerCmd(win, "toggle", 0) },
+      { tooltip: "Следующий", icon: ymmThumbIcons.next, click: () => ymmPlayerCmd(win, "next", 0) }
+    ]);
+  } catch (e) {
+    console.warn("[YMusicMod] thumbar", e && e.message);
+  }
+};
 
 const ymmDialogFilters = [
   { name: "Картинки и видео", extensions: [...YMM_IMAGE_EXT, ...YMM_VIDEO_EXT].map((e) => e.slice(1)) },
@@ -808,12 +952,14 @@ const ymmHandle = (channel, fn) => {
 const ymmRegisterIpc = () => {
   const cfg0 = ymmLoad();
   ymmDiscord.configure(cfg0.discordRpc, cfg0.discordClientId);
+  ymmSetGlobalKeys(cfg0.globalKeys);
   ymmHandle("desktop:ymmod:get", async () => ymmPayload());
   ymmHandle("desktop:ymmod:set", async (_e, patch) => {
     const prev = ymmLoad();
     const next = ymmSanitize(patch, prev);
     ymmSave(next);
     if (prev.discordRpc !== next.discordRpc || prev.discordClientId !== next.discordClientId) ymmDiscord.configure(next.discordRpc, next.discordClientId);
+    if (prev.globalKeys !== next.globalKeys) ymmSetGlobalKeys(next.globalKeys);
     if (prev.logoWindowIcon !== next.logoWindowIcon || prev.logoMode !== next.logoMode || prev.logoFile !== next.logoFile) ymmApplyWindowIcon();
     if (prev.miniAutoHide !== next.miniAutoHide && ymmMini.win && !ymmMini.win.isDestroyed()) {
       if (next.miniAutoHide) ymmStartFsWatcher();
@@ -910,12 +1056,90 @@ const ymmRegisterIpc = () => {
     ymmStatsSave(true);
     return ymmStatsCache;
   });
-  ymmHandle("desktop:ymmod:cover-color", async (_e, url) => {
+  // Резервные копии и перенос настроек.
+  ymmHandle("desktop:ymmod:backups", async () => ymmBackupList().map((name) => {
+    let size = 0;
+    let at = 0;
     try {
-      return await ymmCoverColor(url);
+      const st = ymmFs.statSync(ymmPath.join(YMM_BACKUPS, name));
+      size = st.size;
+      at = st.mtimeMs;
     } catch {
-      return null;
     }
+    return { name, size, at };
+  }));
+  ymmHandle("desktop:ymmod:backup-now", async () => {
+    ymmFlushSave();
+    return ymmBackup("manual");
+  });
+  ymmHandle("desktop:ymmod:backup-restore", async (_e, name) => {
+    if (typeof name !== "string" || !ymmBackupList().includes(name)) return ymmPayload();
+    const raw = ymmReadJson(ymmPath.join(YMM_BACKUPS, name));
+    ymmFlushSave();
+    ymmBackup("before-restore");
+    ymmSave(ymmSanitize({ ...raw, modVersion: YMM_VERSION }));
+    return ymmPayload();
+  });
+  ymmHandle("desktop:ymmod:export-all", async () => {
+    const res = await ymmElectron.dialog.showSaveDialog(ymmWin(), { title: "Экспорт всех настроек", defaultPath: "ymusicmod-settings.json", filters: [{ name: "JSON", extensions: ["json"] }] });
+    if (res.canceled || !res.filePath) return false;
+    ymmFs.writeFileSync(res.filePath, JSON.stringify({ format: "ymusicmod-settings", version: 1, config: ymmLoad() }, null, 2), "utf8");
+    return true;
+  });
+  ymmHandle("desktop:ymmod:import-all", async () => {
+    const res = await ymmElectron.dialog.showOpenDialog(ymmWin(), { title: "Импорт настроек", properties: ["openFile"], filters: [{ name: "JSON", extensions: ["json"] }] });
+    if (res.canceled || !res.filePaths[0]) return ymmPayload();
+    try {
+      const data = ymmReadJson(res.filePaths[0]);
+      if (data.format !== "ymusicmod-settings" || !data.config) throw new Error("wrong format");
+      ymmFlushSave();
+      ymmBackup("before-import");
+      // Файлы фонов и шрифтов с другого компьютера могут отсутствовать: ymmSanitize выкинет такие ссылки.
+      ymmSave(ymmSanitize({ ...data.config, modVersion: YMM_VERSION }));
+    } catch (e) {
+      console.warn("[YMusicMod] settings import failed", e);
+    }
+    return ymmPayload();
+  });
+  ymmHandle("desktop:ymmod:export-stats", async (_e, csv) => {
+    if (typeof csv !== "string") return false;
+    const res = await ymmElectron.dialog.showSaveDialog(ymmWin(), { title: "Экспорт статистики", defaultPath: "ymusicmod-stats.csv", filters: [{ name: "CSV", extensions: ["csv"] }] });
+    if (res.canceled || !res.filePath) return false;
+    ymmFs.writeFileSync(res.filePath, "﻿" + csv, "utf8");
+    return true;
+  });
+  // Состояние плеера для панели задач Windows: кнопки, прогресс.
+  ymmHandle("desktop:ymmod:playback", async (e, p) => {
+    const win = ymmElectron.BrowserWindow.fromWebContents(e.sender);
+    if (!win || !p || typeof p !== "object") return false;
+    if ("playing" in p) ymmThumbbar(win, Boolean(p.playing));
+    if ("progress" in p) {
+      const v = Number(p.progress);
+      win.setProgressBar(Number.isFinite(v) && v >= 0 ? Math.min(1, v) : -1, { mode: p.playing ? "normal" : "paused" });
+    }
+    return true;
+  });
+  ymmHandle("desktop:ymmod:notify", async (_e, p) => {
+    if (!p || typeof p.title !== "string" || !ymmElectron.Notification.isSupported()) return false;
+    let icon;
+    try {
+      const u = new URL(String(p.cover || ""));
+      if (u.protocol === "https:" && /(^|\.)(yandex\.net|yandex\.ru)$/.test(u.hostname)) {
+        const r = await ymmElectron.net.fetch(u.href, { headers: { Accept: "image/jpeg,image/png" } });
+        if (r.ok) icon = ymmElectron.nativeImage.createFromBuffer(Buffer.from(await r.arrayBuffer()));
+      }
+    } catch {
+    }
+    const n = new ymmElectron.Notification({ title: p.title.slice(0, 120), body: String(p.body || "").slice(0, 200), icon, silent: true });
+    n.on("click", () => {
+      const w = ymmWin();
+      if (w && !w.isDestroyed()) {
+        w.show();
+        w.focus();
+      }
+    });
+    n.show();
+    return true;
   });
   ymmHandle("desktop:ymmod:export-presets", async () => {
     const cfg = ymmLoad();
@@ -945,7 +1169,7 @@ const ymmRegisterIpc = () => {
     return true;
   });
   ymmHandle("desktop:ymmod:discord", async (_e, p) => {
-    ymmDiscord.setActivity(ymmBuildActivity(p));
+    ymmDiscord.setActivity(ymmBuildActivity(p, ymmLoad()));
     return ymmDiscord.status();
   });
   ymmHandle("desktop:ymmod:open-folder", async () => {

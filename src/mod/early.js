@@ -1,5 +1,54 @@
 (function () {
   if (window.__ymmAudio) return;
+
+  // Заставка: появляется раньше интерфейса, чтобы при запуске не было белой вспышки и пустого окна.
+  // Настройки читаем из localStorage - до этой точки мод ещё не успел спросить конфиг.
+  (() => {
+    let opts = { on: true };
+    try {
+      opts = JSON.parse(localStorage.getItem("ymm-splash")) || opts;
+    } catch {
+    }
+    if (opts.on === false) return;
+    const logo = typeof opts.logo === "string" && /^ymmod:/.test(opts.logo) ? opts.logo : "";
+    let el = null;
+    const mount = () => {
+      const doc = document.documentElement;
+      if (!doc || el) return Boolean(el);
+      el = document.createElement("div");
+      el.id = "ymm-splash";
+      el.innerHTML = `<style>
+#ymm-splash{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#08080b;transition:opacity .45s ease,visibility .45s;-webkit-app-region:drag}
+#ymm-splash.out{opacity:0;visibility:hidden}
+#ymm-splash .c{display:grid;justify-items:center;gap:26px;animation:ymmSplashIn .6s cubic-bezier(.16,1,.3,1) both}
+#ymm-splash .l{position:relative;width:84px;height:84px;border-radius:24px;background:linear-gradient(145deg,#2a2a33,#121217) center/cover;box-shadow:0 18px 60px rgba(0,0,0,.7)}
+#ymm-splash .l::after{content:"";position:absolute;inset:-10px;border-radius:32px;border:1.5px solid rgba(255,255,255,.28);animation:ymmSplashRing 1.5s cubic-bezier(.2,.7,.2,1) infinite}
+#ymm-splash .b{width:128px;height:3px;border-radius:9px;overflow:hidden;background:rgba(255,255,255,.1)}
+#ymm-splash .b i{display:block;width:40%;height:100%;border-radius:9px;background:rgba(255,255,255,.75);animation:ymmSplashBar 1.1s cubic-bezier(.45,0,.55,1) infinite}
+@keyframes ymmSplashIn{from{opacity:0;transform:translateY(8px) scale(.96)}}
+@keyframes ymmSplashRing{0%{opacity:.8;transform:scale(.9)}100%{opacity:0;transform:scale(1.28)}}
+@keyframes ymmSplashBar{0%{transform:translateX(-110%)}100%{transform:translateX(280%)}}
+</style><div class="c"><div class="l"></div><div class="b"><i></i></div></div>`;
+      if (logo) el.querySelector(".l").style.backgroundImage = `url("${logo.replace(/"/g, "")}")`;
+      doc.append(el);
+      return true;
+    };
+    if (!mount()) {
+      const mo = new MutationObserver(() => mount() && mo.disconnect());
+      mo.observe(document, { childList: true });
+    }
+    // Своя заставка приложения появляется позже в дереве: переносим нашу в самый конец, иначе она оказывается снизу.
+    document.addEventListener("DOMContentLoaded", () => el && document.documentElement.append(el), { once: true });
+    const done = () => {
+      if (!el) return;
+      el.classList.add("out");
+      setTimeout(() => el && el.remove(), 600);
+    };
+    Object.defineProperty(window, "__ymmSplashDone", { value: done, configurable: true });
+    // Что бы ни случилось с приложением, заставка не должна закрыть его навсегда.
+    setTimeout(done, 9000);
+  })();
+
   const elements = new Set();
   const listeners = new Set();
   const reg = {
@@ -51,7 +100,15 @@
   const origConnect = AudioNode.prototype.connect;
   const origDisconnect = AudioNode.prototype.disconnect;
   const chains = new Map();
-  let fx = { studio: false, amount: 60, width: 50, ambience: 20, leveler: false, mode: "normal" };
+  let fx = { studio: false, amount: 60, width: 50, ambience: 20, leveler: false, mode: "normal", profile: "balanced", bass: 0, balance: 0, rate: 100, preserve: true, norm: false, normDb: 0 };
+  // Характер студийной обработки: подъёмы в дБ при силе 100%.
+  const PROFILES = {
+    balanced: { low: 3.2, mud: -1.8, presence: 1.2, air: 3 },
+    warm: { low: 4.6, mud: -0.8, presence: 0.2, air: 1.2 },
+    club: { low: 6, mud: -3, presence: 1.4, air: 3.6 },
+    vocal: { low: 1.4, mud: -2.8, presence: 3.4, air: 2.2 },
+    night: { low: -1.2, mud: -1, presence: 1, air: 1 }
+  };
 
   const makeImpulse = (ctx, seconds, decay) => {
     const rate = ctx.sampleRate;
@@ -161,13 +218,14 @@
     // Выравнивание громкости и лимитер, чтобы подъёмы не давали клиппинга.
     c.level = ctx.createDynamicsCompressor();
     c.makeup = g(1);
+    c.normGain = g(1);
     c.limiter = ctx.createDynamicsCompressor();
     c.limiter.threshold.value = -1;
     c.limiter.knee.value = 0;
     c.limiter.ratio.value = 20;
     c.limiter.attack.value = 0.001;
     c.limiter.release.value = 0.12;
-    link(c.post, c.level, c.makeup, c.limiter, c.wet);
+    link(c.post, c.normGain, c.level, c.makeup, c.limiter, c.wet);
 
     // 8D: панорама гуляет по кругу.
     c.pan = ctx.createStereoPanner();
@@ -198,17 +256,21 @@
       else param.setTargetAtTime(v, t, 0.08);
     };
     const special = fx.mode !== "normal";
-    const on = fx.studio || special || fx.leveler;
+    const on = fx.studio || special || fx.leveler || fx.norm || fx.bass !== 0;
     const a = fx.studio ? fx.amount / 100 : 0;
+    const prof = PROFILES[fx.profile] || PROFILES.balanced;
+    const headroom = dbAmt(3, a) + Math.max(0, fx.bass) * 0.6;
     set(c.bypass.gain, on ? 0 : 1);
     set(c.wet.gain, on ? 1 : 0);
     // Запас по уровню под подъёмы эквалайзера, лимитер потом аккуратно возвращает громкость.
-    set(c.pre.gain, Math.pow(10, -dbAmt(3, a) / 20));
-    set(c.low.gain, dbAmt(3.2, a));
-    set(c.mud.gain, dbAmt(-1.8, a));
-    set(c.presence.gain, dbAmt(1.2, a));
-    set(c.air.gain, dbAmt(3, a));
+    set(c.pre.gain, Math.pow(10, -headroom / 20));
+    set(c.low.gain, dbAmt(prof.low, a) + fx.bass);
+    set(c.mud.gain, dbAmt(prof.mud, a));
+    set(c.presence.gain, dbAmt(prof.presence, a));
+    set(c.air.gain, dbAmt(prof.air, a));
     set(c.exGain.gain, 0.16 * a);
+    set(c.normGain.gain, fx.norm ? Math.pow(10, fx.normDb / 20) : 1);
+    set(c.pan.pan, fx.balance / 100);
     const k = fx.studio ? (fx.width / 100) * 0.7 : 0;
     set(c.wideL.gain, k);
     set(c.wideR.gain, -k);
@@ -217,7 +279,15 @@
     if (fx.mode === "8d") rev = Math.max(rev, 0.22);
     set(c.revSend.gain, rev);
     const lv = c.level;
-    if (fx.leveler) {
+    if (fx.studio && fx.profile === "night") {
+      // Ночной режим: тихие детали слышно, громкие моменты не будят соседей.
+      lv.threshold.value = -34;
+      lv.knee.value = 14;
+      lv.ratio.value = 4.5;
+      lv.attack.value = 0.006;
+      lv.release.value = 0.3;
+      set(c.makeup.gain, Math.pow(10, 8 / 20));
+    } else if (fx.leveler) {
       lv.threshold.value = -26;
       lv.knee.value = 12;
       lv.ratio.value = 3;
@@ -264,11 +334,12 @@
     return origDisconnect.apply(this, arguments);
   };
 
-  const RATE = { normal: 1, slowed: 0.85, nightcore: 1.2, "8d": 1 };
+  const wantRate = () => ({ slowed: 0.85, nightcore: 1.2 })[fx.mode] || (fx.mode === "normal" ? fx.rate / 100 : 1);
   const applyRate = (el) => {
-    const want = RATE[fx.mode] || 1;
+    const want = wantRate();
     try {
-      el.preservesPitch = want === 1;
+      // Slowed и nightcore намеренно меняют высоту, своя скорость - по выбору.
+      el.preservesPitch = fx.mode === "slowed" || fx.mode === "nightcore" ? false : fx.preserve;
       if (Math.abs(el.playbackRate - want) > 0.001) el.playbackRate = want;
     } catch {
     }
@@ -278,8 +349,7 @@
     el.addEventListener("loadedmetadata", () => applyRate(el));
     // Плеер сбрасывает скорость на 1 при смене трека.
     el.addEventListener("ratechange", () => {
-      const want = RATE[fx.mode] || 1;
-      if (Math.abs(el.playbackRate - want) > 0.001) setTimeout(() => applyRate(el), 0);
+      if (Math.abs(el.playbackRate - wantRate()) > 0.001) setTimeout(() => applyRate(el), 0);
     });
   });
 
@@ -294,6 +364,9 @@
         }
       });
       elements.forEach(applyRate);
+    },
+    get rate() {
+      return wantRate();
     },
     // Плавно увести общую громкость (для таймера сна).
     fade(to, seconds) {
@@ -386,9 +459,10 @@
   // Данные треков всего плейлиста. Плейлист приходит списком {id, albumId}, а подробности
   // (с обложками) приложение добирает по ~20 штук прямо перед показом строки. Мы заранее
   // запрашиваем их сами крупными пачками - так обложки успевают загрузиться до прокрутки.
-  // Кэш данных треков: лежат в памяти до того, как понадобятся.
+  // Кэш данных треков (как у больших приложений: данные лежат в памяти до того, как понадобятся).
   const trackCache = {
     map: new Map(),
+    names: new Map(),
     TTL: 20 * 60 * 1000,
     hits: 0,
     misses: 0,
@@ -399,14 +473,27 @@
       } catch {
         return;
       }
-      if (!Array.isArray(arr)) arr = arr && Array.isArray(arr.result) ? arr.result : null;
+      // Волна присылает очередь в другом виде: { result: { sequence: [{ track }] } }.
+      const seq = arr && arr.result && arr.result.sequence;
+      if (Array.isArray(seq)) arr = seq.map((x) => x && x.track);
+      else if (!Array.isArray(arr)) arr = arr && Array.isArray(arr.result) ? arr.result : null;
       if (!arr) return;
       const now = Date.now();
-      for (const t of arr) if (t && t.id != null) this.map.set(String(t.id), { t, at: now });
+      for (const t of arr) {
+        if (!t || t.id == null) continue;
+        this.map.set(String(t.id), { t, at: now });
+        if (t.title && Array.isArray(t.artists)) this.names.set(`${t.title}|${t.artists.map((a) => a.name).join(", ")}`, String(t.id));
+      }
       if (this.map.size > 8000) {
         const drop = [...this.map.keys()].slice(0, this.map.size - 6000);
         drop.forEach((k) => this.map.delete(k));
+        this.names.clear();
       }
+    },
+    // На странице «Моя волна» нет ссылки на трек, остаётся искать его по названию и артисту.
+    find(title, artist) {
+      const id = this.names.get(`${title}|${artist}`);
+      return id ? this.get(id) : null;
     },
     get(id) {
       const e = this.map.get(String(id).split(":")[0]);
@@ -551,6 +638,7 @@
               const run = () => {
                 covers.take(t, true);
                 if (isPlaylist) bulk.fromPlaylist(t);
+                if (/\/rotor\//.test(url)) trackCache.put(t);
               };
               if (window.requestIdleCallback) requestIdleCallback(run, { timeout: 500 });
               else setTimeout(run, 0);
@@ -562,6 +650,15 @@
       return res;
     };
   }
+  // Волна и рекомендации приходят не через /tracks - подробности играющего трека просим сами.
+  covers.fetchTrack = (key) => {
+    if (!bulk.headers || !origFetch) return;
+    origFetch("https://api.music.yandex.net/tracks", {
+      method: "POST",
+      headers: { ...bulk.headers, "content-type": "application/x-www-form-urlencoded", "x-request-id": crypto.randomUUID() },
+      body: new URLSearchParams([["trackIds", key], ...Object.entries(bulk.extra)])
+    }).then((r) => (r.ok ? r.text() : "")).then((t) => t && trackCache.put(t)).catch(() => {});
+  };
   covers.bulk = bulk;
   covers.cache = trackCache;
   Object.defineProperty(window, "__ymmCovers", { value: covers, configurable: false, enumerable: false });

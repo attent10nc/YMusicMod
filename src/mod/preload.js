@@ -9,7 +9,6 @@
       set: call("set"),
       addBackgrounds: call("add-backgrounds"),
       removeBackground: call("remove-background"),
-      coverColor: call("cover-color"),
       exportPresets: call("export-presets"),
       importPresets: call("import-presets"),
       mini: call("mini"),
@@ -22,7 +21,15 @@
       setLogo: call("set-logo"),
       statsAdd: call("stats-add"),
       statsGet: call("stats-get"),
-      statsReset: call("stats-reset")
+      statsReset: call("stats-reset"),
+      exportStats: call("export-stats"),
+      backups: call("backups"),
+      backupNow: call("backup-now"),
+      backupRestore: call("backup-restore"),
+      exportAll: call("export-all"),
+      importAll: call("import-all"),
+      playback: call("playback"),
+      notify: call("notify")
     });
   } catch (e) {
     console.warn("[YMusicMod] bridge", e);
